@@ -1,0 +1,5 @@
+data/
+runtime/
+__pycache__/
+*.md
+*.html

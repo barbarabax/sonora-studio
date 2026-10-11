@@ -1,0 +1,16 @@
+[Unit]
+Description=Expire Sonora RunPod GPU session
+After=network-online.target
+[Service]
+Type=oneshot
+User=sonora
+Group=sonora
+WorkingDirectory=/opt/sonora
+Environment=SONORA_DATA_DIR=/var/lib/sonora
+Environment=SONORA_SECRET_FILE=/var/lib/sonora/.credential-key
+ExecStart=/usr/bin/node /opt/sonora/gpu-session-watchdog.mjs
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sonora
+UMask=0077

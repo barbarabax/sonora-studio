@@ -1,0 +1,13 @@
+data/
+runtime/
+output/
+node_modules/
+__pycache__/
+*.py[cod]
+*.log
+.env
+.env.*
+config.json
+Accesso Sonora VPS.txt
+.codedna.lock
+.omc/

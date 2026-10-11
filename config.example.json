@@ -1,0 +1,8 @@
+{
+  "port": 3210,
+  "comfyUrl": "http://127.0.0.1:8188",
+  "model": "acestep_v1.5_xl_turbo_bf16.safetensors",
+  "encoder": "qwen_0.6b_ace15.safetensors",
+  "planner": "qwen_4b_ace15.safetensors",
+  "vae": "ace_1.5_vae.safetensors"
+}

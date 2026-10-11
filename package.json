@@ -1,0 +1,16 @@
+{
+  "name": "sonora-studio",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Local-first music creation studio for ComfyUI and ACE-Step 1.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:audio": "node audio-tests.mjs",
+    "check": "node --experimental-vm-modules scripts/check.mjs",
+    "format": "npx --yes prettier@3 --write \"*.mjs\" \"public/*.mjs\" \"public/*.js\" \"public/*.css\" \"test/*.mjs\""
+  }
+}

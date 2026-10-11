@@ -1,0 +1,11 @@
+# .codedna — CodeDNA project manifest
+project: sonora-studio
+description: "Local-first music creation studio for ComfyUI and ACE-Step 1.5"
+mode: semi    # human | semi | agent
+max_agent_sessions: 5
+
+packages: {}
+
+cross_cutting_patterns: {}
+
+agent_sessions: []
