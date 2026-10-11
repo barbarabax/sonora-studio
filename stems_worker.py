@@ -37,12 +37,12 @@ def fit_grid(stem_dir):
     _, beats = librosa.beat.beat_track(y=mix, sr=22050, units='time', tightness=100)
     beats = np.asarray(beats, dtype=float)
     if len(beats) < 8:
-        raise ValueError('Non riesco a trovare il tempo del brano.')
+        raise ValueError('Could not find the tempo of the track.')
     rough = float(np.median(np.diff(beats)))
     index = np.round((beats - beats[0]) / rough)
     period, t0 = np.polyfit(index, beats, 1)
     if not 0.2 < period < 2.0:
-        raise ValueError('Tempo del brano non plausibile.')
+        raise ValueError('The track tempo is not plausible.')
     return {'bpm': round(60.0 / float(period), 2), 'period': float(period), 't0': float(t0)}
 
 

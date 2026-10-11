@@ -31,13 +31,13 @@ def main(task):
     if action == 'analyze':
         report(phase='Lettura audio')
         audio, rate, info = dsp.read_audio(task['source'])
-        report(phase='Analisi: loudness, frequenze, stereo, tempo e tonalità')
+        report(phase='Analysis: loudness, frequencies, stereo, tempo and key')
         report(done=True, analysis=dsp.analyze(audio, rate, info))
     elif action == 'import':
         report(phase='Decodifica del file')
         audio, rate, info = dsp.read_audio(task['source'])
         dsp.write_flac(task['outputFile'], audio, rate)
-        report(phase='Analisi: loudness, frequenze, stereo, tempo e tonalità')
+        report(phase='Analysis: loudness, frequencies, stereo, tempo and key')
         report(done=True, analysis=dsp.analyze(audio, rate, info))
     elif action == 'render':
         report(phase='Lettura della sorgente')

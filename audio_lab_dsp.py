@@ -118,7 +118,7 @@ def probe(filename):
     stream = streams[0]
     duration = float(data.get('format', {}).get('duration') or 0)
     if not math.isfinite(duration) or duration <= 0 or duration > MAX_SECONDS:
-        raise ValueError('Scegli un audio valido di massimo 10 minuti.')
+        raise ValueError('Choose a valid audio file of up to 10 minutes.')
     bits = int(stream.get('bits_per_raw_sample') or stream.get('bits_per_sample') or 0) or None
     tags = {k.lower(): str(v)[:200] for k, v in (data.get('format', {}).get('tags') or {}).items() if k.lower() in ('title', 'artist', 'album')}
     return {'sampleRate': int(stream['sample_rate']), 'channels': int(stream.get('channels') or 0),
@@ -132,7 +132,7 @@ def read_audio(filename):
     decoded = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(filename), '-vn', '-ac', '2', '-ar', str(rate),
                               '-f', 'f32le', 'pipe:1'], capture_output=True, timeout=300)
     if decoded.returncode != 0:
-        raise ValueError('Impossibile decodificare l’audio.')
+        raise ValueError('Could not decode the audio.')
     audio = np.frombuffer(decoded.stdout, dtype='<f4').reshape(-1, 2).T.copy()
     if audio.shape[1] < rate // 2 or not np.isfinite(audio).all():
         raise ValueError('Audio vuoto, troppo breve o non valido.')

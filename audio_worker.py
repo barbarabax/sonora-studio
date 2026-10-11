@@ -33,7 +33,7 @@ def read_audio(filename, rate=44100):
     probe = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(filename)], capture_output=True, text=True, check=True, timeout=30)
     duration = float(json.loads(probe.stdout)['format']['duration'])
     if not math.isfinite(duration) or duration <= 0 or duration > 600:
-        raise ValueError('Scegli un audio valido di massimo 10 minuti.')
+        raise ValueError('Choose a valid audio file of up to 10 minutes.')
     decoded = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(filename), '-vn', '-ac', '2', '-ar', str(rate), '-f', 'f32le', 'pipe:1'], capture_output=True, check=True, timeout=120)
     audio = np.frombuffer(decoded.stdout, dtype='<f4').reshape(-1, 2).copy()
     if not len(audio) or not np.isfinite(audio).all():
