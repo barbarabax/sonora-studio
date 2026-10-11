@@ -29,6 +29,8 @@ The VRAM figures come from the [ACE-Step 1.5 model card](https://huggingface.co/
 
 Sonora never installs or edits ComfyUI, its custom nodes or its settings.
 
+New to ACE-Step 1.5? The project's own [tutorial and FAQ](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Tutorial.md) explains how the model works, how to write prompts and lyrics, and answers common questions.
+
 ## Start locally (this PC)
 
 1. Start ComfyUI on this computer. It must have the ACE-Step 1.5 nodes installed.
