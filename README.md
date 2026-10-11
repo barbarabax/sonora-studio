@@ -127,6 +127,26 @@ This integration only lists instances and connects to the instance you select. I
 
 Provider API keys are sent to the local Sonora server, encrypted at rest with AES-256-GCM, and never included in browser responses. The local encryption key is stored under `data/` (or the path in `SONORA_SECRET_FILE`). Keep the Windows account or Linux data directory protected; local disk encryption and account security still matter. Never commit `data/`, share API keys, or put them in screenshots.
 
+## Optional: AI assistant (OpenAI or DeepSeek)
+
+Making music does **not** need any AI key. A text-AI key only unlocks writing helpers. Without it Sonora still works; those features are simply unavailable or fall back to a simpler version.
+
+| Feature | Without a key | With a key |
+|---|---|---|
+| Improve a style prompt, write lyrics (Prompt and lyrics) | Not available | OpenAI or DeepSeek |
+| Dice: a full idea with title, style and lyrics | Fills in only the style | OpenAI or DeepSeek |
+| Auto tempo, time signature and key | Sonora estimates them from the words of the style | The AI chooses them from style and lyrics |
+| Mastering suggestions (Audio Lab) | Not available | OpenAI or DeepSeek |
+| Listen to a track and build a matching prompt | Not available | **OpenAI only**, with an audio-capable model |
+
+**How to add the key**
+
+1. Open **Prompt and lyrics** and scroll to **Configure AI**.
+2. Choose **OpenAI** or **DeepSeek**.
+3. Paste your API key and save. Sonora loads the models available for your key; pick one.
+
+The key is encrypted on this computer and is never returned to the browser. Requests use your own credits with the provider you chose, so check their pricing. Create keys on the provider's own site (OpenAI or DeepSeek platform) and never share them or put them in screenshots.
+
 ## Optional configuration
 
 The application starts with built-in ACE-Step defaults. Copy `config.example.json` to `config.json` only if you need to change local model filenames or the listening port. `config.json` is ignored by Git. API keys should be entered in the app's provider settings, not in this file.
