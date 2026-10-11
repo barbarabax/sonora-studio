@@ -79,6 +79,7 @@ Double-click `Avvia Sonora.cmd`, or run `npm start` in the Sonora folder. Your b
 3. Choose **Check model files**. Sonora lists the exact missing ACE-Step files and their sizes.
 4. Choose **Download missing models** and confirm. It downloads about 19.9 GB (18.5 GiB) for a fresh setup, shows progress, supports cancellation and resumes partial files when the host supports it. Every file is checked against the official Hugging Face SHA-256 before it is installed.
 5. If ComfyUI still reports missing files afterwards, restart ComfyUI yourself.
+6. Optional but recommended: choose **Run a quick test** in **Provider settings**. Sonora generates a hidden 10-second instrumental clip and tells you whether the whole pipeline runs (files, nodes, GPU memory), then deletes the clip. It confirms that things work, not how the music sounds.
 
 ### 6. Make your first song
 

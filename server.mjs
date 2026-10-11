@@ -209,8 +209,11 @@ export function createStudio(
     persist();
   }
   let modelSetup;
+  // Rules: the verdict of the last quick test; the test job itself is deleted as soon as it ends (see finishQuickTest).
+  let quickTest = { status: 'idle' };
   const snapshot = () => ({
-    jobs: db.jobs,
+    jobs: db.jobs.filter(j => !j.test),
+    quickTest,
     workspaces: db.workspaces,
     prompts: promptStore.list(),
     health: { ...health },
@@ -236,6 +239,39 @@ export function createStudio(
   const change = (job, fields, durable = true) => {
     Object.assign(job, fields, { updatedAt: new Date().toISOString() });
     if (durable) persist();
+    broadcast();
+    if (job.test && TERMINAL.has(job.status)) finishQuickTest(job);
+  };
+  /**
+   * The quick test is an ordinary 10-second job flagged `test`: it never appears in the library and is removed, with its
+   * files, the moment it ends. Only the verdict stays. It proves the pipeline runs, not that the music is good.
+   */
+  const finishQuickTest = job => {
+    const seconds = Math.round((Date.now() - Date.parse(job.createdAt)) / 100) / 10;
+    quickTest =
+      job.status === 'done'
+        ? {
+            status: 'ok',
+            seconds,
+            message: `The pipeline works: a 10-second test clip was generated in ${seconds} s.`,
+          }
+        : {
+            status: 'failed',
+            seconds,
+            message:
+              job.status === 'cancelled'
+                ? 'The test was cancelled.'
+                : job.error || 'The test failed. Check ComfyUI and the provider settings.',
+          };
+    const index = db.jobs.indexOf(job);
+    if (index >= 0) db.jobs.splice(index, 1);
+    try {
+      const audioDir = path.join(dataDir, 'audio');
+      for (const name of fs.readdirSync(audioDir))
+        if (name.startsWith(job.id + '.')) fs.rmSync(path.join(audioDir, name), { force: true });
+    } catch {}
+    fs.rmSync(path.join(dataDir, 'workflows', job.id + '.json'), { force: true });
+    persist();
     broadcast();
   };
   const cpu = createCpuLock(),
@@ -805,6 +841,7 @@ export function createStudio(
       createdAt: new Date().toISOString(),
       favorite: false,
       archived: extra.rework?.mode === 'layer',
+      ...(extra.test ? { test: true } : {}),
       assets: {},
     }));
     db.jobs.unshift(...jobs);
@@ -1460,6 +1497,37 @@ export function createStudio(
         clients.add(res);
         res.write(`data: ${JSON.stringify(snapshot())}\n\n`);
         req.on('close', () => clients.delete(res));
+        return;
+      }
+      // Quick test: a 10-second instrumental clip with the selected provider, to confirm the whole pipeline runs.
+      if (req.method === 'POST' && url.pathname === '/api/provider-test') {
+        const open = db.jobs.find(j => j.test && !TERMINAL.has(j.status));
+        if (open && Date.now() - Date.parse(open.createdAt) < 15 * 60 * 1000)
+          throw new Error('A quick test is already running.');
+        if (open) db.jobs.splice(db.jobs.indexOf(open), 1);
+        const probe = validateInput({
+          title: 'Quick test',
+          tags: 'calm solo piano, soft, simple melody',
+          instrumental: true,
+          durationMode: 'manual',
+          duration: 10,
+          bpm: 90,
+          keyscale: 'C major',
+          timesignature: '4',
+          quality: 'light',
+          finish: 'fast',
+          variants: 1,
+        });
+        quickTest = { status: 'running', message: 'Generating a 10-second test clip…' };
+        try {
+          await submit(probe, null, null, GENERAL, { test: true });
+        } catch (e) {
+          quickTest = { status: 'failed', message: e.message };
+          broadcast();
+          throw e;
+        }
+        broadcast();
+        json(res, 202, { quickTest });
         return;
       }
       if (req.method === 'POST' && url.pathname === '/api/generate') {

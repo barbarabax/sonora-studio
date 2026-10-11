@@ -468,6 +468,7 @@ function visibleJobs() {
 }
 function render() {
   renderLocalModelSetup();
+  renderQuickTest();
   editor.render(state);
   lab.render(state);
   mixer.render(state);
@@ -876,6 +877,21 @@ function providerStatus(id, message, failed = false) {
   status.textContent = message;
   status.classList.toggle('error', failed);
 }
+function renderQuickTest() {
+  const test = state.quickTest || { status: 'idle' };
+  $('#quick-test-run').disabled = test.status === 'running';
+  providerStatus('quick-test-status', test.status === 'idle' ? '' : test.message, test.status === 'failed');
+}
+$('#quick-test-run').addEventListener('click', async () => {
+  providerStatus('quick-test-status', 'Starting the test…');
+  try {
+    const result = await api('/api/provider-test', 'POST', {});
+    state = { ...state, quickTest: result.quickTest };
+    renderQuickTest();
+  } catch (e) {
+    providerStatus('quick-test-status', e.message, true);
+  }
+});
 function modelSize(bytes) {
   return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
 }
