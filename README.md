@@ -104,6 +104,10 @@ The prompt studio includes original prompt categories and presets from the autho
 
 Sonora Studio is made by [Barichord](https://barichord.com). Questions, feedback and bug reports are welcome: open an issue on GitHub, or write to [info@barichord.com](mailto:info@barichord.com).
 
+## License
+
+Sonora Studio is released under the [MIT License](LICENSE). Third-party components keep their own licenses; see below.
+
 ## Third-party notices
 
 The Audio Lab mastering and analysis ideas include a rewritten portion of Barichord Audio Lab, licensed under the MIT License, Copyright (c) 2025 geeknik. See `THIRD_PARTY_NOTICES.md` for details and the included license text.
