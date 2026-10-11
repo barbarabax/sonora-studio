@@ -153,7 +153,7 @@ Sonora Studio is a free gift to the community, provided as is and maintained in 
 
 ## About
 
-Sonora Studio is made by [Barichord](https://barichord.com). Questions, feedback and bug reports are welcome: open an issue on GitHub, or write to [info@barichord.com](mailto:info@barichord.com).
+Sonora Studio is made by Barbara Basso and Riccardo Abbate at [Barichord](https://barichord.com). Questions, feedback and bug reports are welcome: open an issue on GitHub, or write to [info@barichord.com](mailto:info@barichord.com).
 
 Sonora Studio was built with AI assistance (Claude Code), so expect some rough edges.
 
