@@ -906,7 +906,8 @@ function renderLocalModelSetup() {
   const progress = active && total
     ? `<progress max="100" value="${percent}" aria-label="ACE-Step model download progress"></progress><small>${percent}% · ${modelSize(currentBytes)} / ${modelSize(total)}${setup.activeFile ? ` · ${escape(setup.activeFile)}` : ''}</small>`
     : '';
-  status.innerHTML = `${escape(setup.message || 'Choose a ComfyUI folder, save it, then check its models.')}${progress}`;
+  const warning = setup.warning ? `<small class="error">${escape(setup.warning)}</small>` : '';
+  status.innerHTML = `${escape(setup.message || 'Choose a ComfyUI folder, save it, then check its models.')}${progress}${warning}`;
   status.classList.toggle('error', setup.status === 'error');
   $('#local-model-check').disabled = active;
   $('#local-model-download').disabled = active || !setup.files?.some(file => file.status === 'missing');
@@ -988,6 +989,7 @@ $('#local-model-check').addEventListener('click', async event => {
     state.modelSetup = {
       ...state.modelSetup,
       ...plan,
+      warning: plan.warning,
       status: plan.files.some(file => file.status === 'missing') ? 'checked' : 'ready',
       message: plan.files.some(file => file.status === 'missing')
         ? `${plan.files.filter(file => file.status === 'missing').length} model file(s) are missing (${modelSize(plan.totalBytes)} to download). Keep at least 22 GB free for the complete ACE-Step XL package.`

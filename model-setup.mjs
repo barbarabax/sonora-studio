@@ -67,15 +67,21 @@ export function createModelSetup({
 
   async function validateRoot(input) {
     if (typeof input !== 'string' || !input.trim() || !path.isAbsolute(input.trim()))
-      throw new Error('Enter the full path to the ComfyUI folder that contains main.py.');
+      throw new Error(
+        'Enter the full path to the ComfyUI folder that contains main.py (for ComfyUI Desktop: the base folder that contains its models folder).'
+      );
     const root = await fs.promises.realpath(input.trim()).catch(() => {
       throw new Error('ComfyUI folder not found. Check the full path and try again.');
     });
     const main = path.join(root, 'main.py');
     const stat = await fs.promises.lstat(main).catch(() => null);
-    if (!stat?.isFile() || stat.isSymbolicLink())
-      throw new Error('The selected folder must contain the ComfyUI main.py file.');
-    return root;
+    if (stat?.isFile() && !stat.isSymbolicLink()) return root;
+    // Rules: ComfyUI Desktop keeps its program and its data apart: the base folder the user chose holds `models` but no main.py.
+    const models = await fs.promises.lstat(path.join(root, 'models')).catch(() => null);
+    if (models?.isDirectory() && !models.isSymbolicLink()) return root;
+    throw new Error(
+      'The selected folder must contain the ComfyUI main.py file, or (ComfyUI Desktop) be the base folder that contains the models folder.'
+    );
   }
 
   async function metadata() {

@@ -51,6 +51,15 @@ const PHASES = {
   11: 'Saving FLAC',
 };
 
+/** The folder ComfyUI was started with (`--base-directory`), when its system stats expose the command line. */
+function comfyBaseDirectory(stats) {
+  const argv = stats?.system?.argv;
+  if (!Array.isArray(argv)) return undefined;
+  const index = argv.findIndex(a => typeof a === 'string' && (a === '--base-directory' || a.startsWith('--base-directory=')));
+  if (index < 0) return undefined;
+  const value = argv[index].includes('=') ? argv[index].split('=').slice(1).join('=') : argv[index + 1];
+  return typeof value === 'string' && value && value.length < 500 ? value : undefined;
+}
 export function createStudio(
   config,
   {
@@ -222,7 +231,7 @@ export function createStudio(
     editor: editor.snapshot(),
     audioLab: lab.snapshot(),
     stems: stems.snapshot(),
-    modelSetup: modelSetup?.snapshot() || { status: 'idle', message: 'Choose a ComfyUI folder to check its models.' },
+    modelSetup: modelSetupView(),
   });
   // Progress events arrive many times per second: coalesce them into one snapshot every 120 ms.
   let broadcastTimer = null;
@@ -235,7 +244,35 @@ export function createStudio(
     if (stopped) return;
     broadcastTimer ??= setTimeout(sendSnapshot, 120);
   };
-  modelSetup = createModelSetup({ onChange: () => broadcast(), ...(modelFetch ? { fetchImpl: modelFetch } : {}) });
+  /**
+   * Rules: the model files Sonora finds on disk and the models ComfyUI lists can disagree (ComfyUI Desktop keeps its models in
+   * its own base folder). When every file is present but ComfyUI still reports them missing, say so and name the folder.
+   */
+  const modelSetupView = () => {
+    const setup = modelSetup?.snapshot() || {
+      status: 'idle',
+      message: 'Choose a ComfyUI folder to check its models.',
+    };
+    if (setup.status !== 'ready' || !health.online || !health.missingModels?.length) return setup;
+    const where = health.comfyBase
+      ? ` ComfyUI says its base folder is ${health.comfyBase}: enter that folder in the field above.`
+      : ' ComfyUI Desktop keeps its models in its own base folder: enter that folder (the one that contains models), or move the files there. If it already is the folder ComfyUI reads, restart ComfyUI.';
+    return {
+      ...setup,
+      warning: `Sonora found the model files in ${path.join(setup.root || '', 'models')}, but ComfyUI does not see them.${where}`,
+    };
+  };
+  let lastModelStatus = 'idle';
+  modelSetup = createModelSetup({
+    onChange: () => {
+      broadcast();
+      const status = modelSetup?.snapshot().status;
+      // Right after a download finishes, ask ComfyUI again so a wrong folder shows up immediately.
+      if (status === 'ready' && lastModelStatus !== 'ready') checkHealth().then(broadcast, () => {});
+      lastModelStatus = status;
+    },
+    ...(modelFetch ? { fetchImpl: modelFetch } : {}),
+  });
   const change = (job, fields, durable = true) => {
     Object.assign(job, fields, { updatedAt: new Date().toISOString() });
     if (durable) persist();
@@ -465,6 +502,7 @@ export function createStudio(
         message: missing.length ? `Missing: ${missing.join(', ')}` : 'Ready to create',
         gpu: stats.devices?.[0]?.name,
         model: config.model,
+          ...(comfyBaseDirectory(stats) ? { comfyBase: comfyBaseDirectory(stats) } : {}),
           missingModels: [
             !has('UNETLoader', 'unet_name', config.model) && { category: 'diffusion_models', name: config.model },
             !has('DualCLIPLoader', 'clip_name1', config.encoder) && { category: 'text_encoders', name: config.encoder },
@@ -1298,7 +1336,9 @@ export function createStudio(
           planner: config.planner,
           vae: config.vae,
         });
-        json(res, 200, plan);
+        await checkHealth().catch(() => {});
+        const warning = modelSetupView().warning;
+        json(res, 200, warning ? { ...plan, warning } : plan);
         return;
       }
       if (req.method === 'POST' && url.pathname === '/api/models/download') {
