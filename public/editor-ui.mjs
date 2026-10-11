@@ -22,7 +22,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
   const url = (id, kind, voice = 'original', download = false, format = 'flac') =>
     `/api/editor/${id}/audio?kind=${kind}&id=${encodeURIComponent(voice)}${download ? '&download=1' : ''}${format ? `&format=${format}` : ''}`;
   panel.innerHTML = `<div class="editor-heading"><div><div class="section-eyebrow">03 / REFINE</div><h1>Sound, your way.</h1><p>Separate vocals and instrumental. Listen, replace, and find your balance.</p></div><span class="editor-badge">EDITOR · 2 TRACKS</span></div>
-    <div class="editor-source"><label for="edit-track">Track to edit</label><div class="editor-source-row"><select id="edit-track"><option value="">Choose a track from your library or upload one</option></select><label class="pill-button subtle editor-upload-btn" for="edit-upload-song" style="cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap;">Upload an external track</label><input id="edit-upload-song" type="file" accept="audio/*" hidden><button id="edit-separate" class="pill-button">Separate vocals and instrumental</button><button id="edit-remove-session" class="text-button" hidden style="margin-left: 4px;">Remove</button></div><p id="edit-status" class="field-hint" role="status">Choose a completed track or upload an audio file to get started.</p><p id="edit-error" class="error" hidden></p></div>
+    <div class="editor-source"><label for="edit-track">Track to edit</label><div class="editor-source-row"><select id="edit-track"><option value="">Choose a track from your library or upload one</option></select><label class="pill-button subtle editor-upload-btn" for="edit-upload-song" style="cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap;">Upload an external track</label><input id="edit-upload-song" type="file" accept="audio/*" hidden><button id="edit-instrumental" class="pill-button subtle" type="button" hidden title="Use the track as it is for the base, without separating a voice">Already instrumental · skip separation</button><button id="edit-separate" class="pill-button">Separate vocals and instrumental</button><button id="edit-remove-session" class="text-button" hidden style="margin-left: 4px;">Remove</button></div><p id="edit-status" class="field-hint" role="status">Choose a completed track or upload an audio file to get started.</p><p id="edit-error" class="error" hidden></p></div>
     <div id="edit-workspace" hidden><div class="editor-toolbar"><div class="editor-listen" role="group" aria-label="Editor monitoring"><button class="selected" data-listen="mix">Mix</button><button data-listen="base">Instrumental only</button><button data-listen="voice">Vocals only</button><button data-listen="original">Original</button></div><button id="edit-play" class="pill-button" disabled style="display: inline-flex; align-items: center; gap: 6px;">▶ Play mix</button></div>
       <div class="editor-timeline"><span id="edit-elapsed">0:00</span><input id="edit-seek" type="range" min="0" max="1000" value="0" aria-label="Pan nell’editor"><span id="edit-total">0:00</span></div>
       <div class="stem-track base-track"><div class="stem-head"><div><span class="stem-mark">B</span><strong>Instruments (original backing)</strong></div><div style="display:flex;gap:10px;align-items:center;"><a id="edit-base-download" class="text-button">Download FLAC</a><a id="edit-base-download-mp3" class="text-button">Download MP3</a></div></div><canvas id="edit-base-wave" aria-label="Backing waveform"></canvas><div class="stem-controls"><button id="edit-base-mute" class="pill-button subtle" aria-pressed="false">Mute instrumental</button><label for="edit-base-gain">Instrumental level</label><input id="edit-base-gain" type="range" min="0" max="2" step="0.01" value="1"><output id="edit-base-level">100%</output></div></div>
@@ -264,10 +264,16 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
       $('edit-remove-session').disabled = busy;
     }
     $('edit-separate').disabled = !selected || busy || !!session?.stems || !state.editor?.available;
+    // A track that already is instrumental (or an imported file) can be used as the base without separating it.
+    const trackJob = state.jobs.find(j => j.id === selected);
+    $('edit-instrumental').hidden = !selected || !!session?.stems || (!!trackJob && !trackJob.input?.instrumental);
+    $('edit-instrumental').disabled = busy || !state.editor?.available;
     $('edit-separate').textContent = busy
       ? 'Processing…'
-      : session?.stems
-        ? 'Tracce separate'
+      : session?.instrumentalOnly
+        ? 'Instrumental track'
+        : session?.stems
+          ? 'Tracks separated'
         : 'Separate vocals and instrumental';
     $('edit-workspace').hidden = !session?.stems;
     $('edit-status').textContent = loading
@@ -359,6 +365,14 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     try {
       await api(`/api/editor/${selected}/separate`, 'POST', {});
       toast('Vocal/instrumental separation started.');
+    } catch (e) {
+      toast(e.message);
+    }
+  });
+  $('edit-instrumental').addEventListener('click', async () => {
+    try {
+      await api(`/api/editor/${selected}/separate`, 'POST', { instrumental: true });
+      toast('Track ready as the base: no separation needed.');
     } catch (e) {
       toast(e.message);
     }

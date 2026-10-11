@@ -220,13 +220,17 @@ export function createAudioEditor({
     if (!uuid(id) || !s.voices.some(v => v.id === id)) throw new Error('Vocal track is unavailable.');
     return path.join(sessionDir(s.id), 'voices', id, 'voice.flac');
   }
-  async function separate(id) {
+  /**
+   * Rules: with `instrumental` the track is used as the base as it is (no separation model runs, the original voice is silence):
+   * for a track that has no voice, separating it only costs minutes of CPU.
+   */
+  async function separate(id, { instrumental = false } = {}) {
     const s = session(id);
     if (s.stems || ['queued', 'processing'].includes(s.status)) return s;
     return enqueue(
       s,
       {
-        action: 'separate',
+        action: instrumental ? 'instrumental' : 'separate',
         source: source(id),
         outputDir: sessionDir(id),
         modelDir: path.join(folder, 'models'),
@@ -242,8 +246,10 @@ export function createAudioEditor({
           rate: result.rate,
           frames: result.frames,
           stemAttenuation: result.stemAttenuation ?? 1,
+          ...(instrumental ? { instrumentalOnly: true } : {}),
         });
-      }
+      },
+      instrumental ? 'Queued · preparing the instrumental' : undefined
     );
   }
   async function importVoice(id, req) {

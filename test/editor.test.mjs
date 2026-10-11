@@ -40,6 +40,10 @@ const fakeWorker = async task => {
     write(task.outputDir, 'vocals.flac');
     write(task.outputDir, 'instrumental.flac');
   }
+  if (task.action === 'instrumental') {
+    write(task.outputDir, 'vocals.flac');
+    write(task.outputDir, 'instrumental.flac');
+  }
   if (task.action === 'import') write(task.outputDir, 'voice.flac');
   if (task.action === 'mix') write(task.outputDir, 'mix.flac');
   return { done: true, duration: 30, frames: 1323000, rate: 44100, attenuation: 1 };
@@ -322,4 +326,40 @@ test('importing external song to editor allows separation, downloading separate 
   });
   assert.equal(delRes.status, 200);
   assert.ok(!fs.existsSync(path.join(dir, 'editor', session.id)));
+});
+
+test('an instrumental track can skip separation: the base is ready without the separation model', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-instr-')),
+    a = library(dir),
+    b = library(dir),
+    actions = [];
+  const editor = createAudioEditor({
+    root: dir,
+    dataDir: dir,
+    getJob: id => [a, b].find(j => j.id === id),
+    runTask: async task => {
+      actions.push(task.action);
+      return fakeWorker(task);
+    },
+  });
+  t.after(() => {
+    editor.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  await editor.separate(a.id, { instrumental: true });
+  await waitFor(() => editor.snapshot().sessions[0].stems);
+  const s = editor.snapshot().sessions[0];
+  assert.deepEqual(actions, ['instrumental']);
+  assert.equal(s.instrumentalOnly, true);
+  assert.ok(fs.existsSync(editor.media(a.id, 'base')));
+  assert.ok(fs.existsSync(editor.media(a.id, 'voice')), 'the original voice exists (silent) so mixes keep working');
+  // The normal path still runs the separator for the other track.
+  await editor.separate(b.id);
+  await waitFor(() => editor.snapshot().sessions.every(x => x.stems));
+  assert.deepEqual(actions, ['instrumental', 'separate']);
+  assert.equal(editor.snapshot().sessions.find(x => x.id === b.id).instrumentalOnly, undefined);
+  // An instrumental base can be mixed with a new voice like any other session.
+  const values = { voiceId: 'original', baseGain: 1, voiceGain: 1, offsetMs: 0 };
+  await editor.exportMix(a.id, values);
+  await waitFor(() => editor.snapshot().sessions.find(x => x.id === a.id).mixes.length === 1);
 });

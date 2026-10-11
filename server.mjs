@@ -1750,7 +1750,8 @@ export function createStudio(
       if (edit) {
         const [, id, operation] = edit;
         if (req.method === 'POST' && operation === 'separate') {
-          json(res, 202, await editor.separate(id));
+          const body = await bodyOf(req);
+          json(res, 202, await editor.separate(id, { instrumental: body.instrumental === true }));
           return;
         }
         if (req.method === 'POST' && operation === 'voice') {
