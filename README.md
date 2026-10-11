@@ -43,13 +43,48 @@ Sonora never installs or edits ComfyUI, its custom nodes or its settings.
 
 New to ACE-Step 1.5? The project's own [tutorial and FAQ](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Tutorial.md) explains how the model works, how to write prompts and lyrics, and answers common questions.
 
-## Start locally (this PC)
+## Quick start (Windows, NVIDIA GPU)
 
-1. Start ComfyUI on this computer. It must have the ACE-Step 1.5 nodes installed.
-2. Run `Avvia Sonora.cmd`, or use `npm start` from this folder.
-3. Open `http://127.0.0.1:3210`.
-4. Use **Provider settings** to check the ComfyUI URL and enter the full ComfyUI folder path (the folder containing `main.py`).
-5. Choose **Check model files**. Sonora lists the exact missing ACE-Step files and their sizes. **Download missing models** asks for confirmation before downloading about 19.9 GB (18.5 GiB) for a fresh setup, shows progress, supports cancellation and resumes partial files when the host supports it. Keep at least 22 GB free. Every downloaded file is checked against the official Hugging Face SHA-256 before it is installed.
+This is the full path for running everything on your own computer. Do the steps in order. Linux works the same way with `npm start`.
+
+### 1. Prepare the computer
+
+- Update your NVIDIA driver from the NVIDIA website.
+- Make sure you have at least 22 GB of free disk space (30 GB is more comfortable).
+- Install **Node.js 22 or newer** (the LTS version) from [nodejs.org](https://nodejs.org).
+- Install **FFmpeg**. In a Command Prompt run `winget install Gyan.FFmpeg`, then close and reopen the prompt so FFmpeg is found.
+
+### 2. Install and start ComfyUI
+
+- Download the **Windows portable (NVIDIA)** build from the Releases page of [ComfyUI](https://github.com/comfyanonymous/ComfyUI/releases) and extract it to a short path such as `C:\ComfyUI`.
+- Start it with `run_nvidia_gpu.bat`. The first start takes a while. Keep that window open: ComfyUI must be running whenever you use Sonora.
+- Use a recent ComfyUI that includes the ACE-Step 1.5 nodes. If the nodes are missing, Sonora tells you in **Provider settings**.
+
+### 3. Get Sonora Studio
+
+Click **Code, then Download ZIP** on GitHub and extract it, or clone it:
+
+```sh
+git clone https://github.com/barbarabax/sonora-studio.git
+```
+
+### 4. Start Sonora
+
+Double-click `Avvia Sonora.cmd`, or run `npm start` in the Sonora folder. Your browser opens `http://127.0.0.1:3210`; if it does not, open that address yourself.
+
+### 5. Connect Sonora to ComfyUI and download the models
+
+1. Open **Provider settings** and check that the ComfyUI URL is `http://127.0.0.1:8188`.
+2. Enter the ComfyUI folder that contains `main.py`. In the portable build this is the inner `ComfyUI` folder, for example `C:\ComfyUI\ComfyUI_windows_portable\ComfyUI`.
+3. Choose **Check model files**. Sonora lists the exact missing ACE-Step files and their sizes.
+4. Choose **Download missing models** and confirm. It downloads about 19.9 GB (18.5 GiB) for a fresh setup, shows progress, supports cancellation and resumes partial files when the host supports it. Every file is checked against the official Hugging Face SHA-256 before it is installed.
+5. If ComfyUI still reports missing files afterwards, restart ComfyUI yourself.
+
+### 6. Make your first song
+
+Open **Create music**, write a style and lyrics, and press Create.
+
+### Good to know
 
 Sonora writes only the model weights into `ComfyUI/models/diffusion_models`, `models/text_encoders`, and `models/vae`. It does not install or edit ComfyUI, custom nodes, or settings. If ComfyUI still reports missing files after the download, restart ComfyUI yourself. The supported ACE-Step 1.5 XL Turbo files come from the [official Comfy-Org Hugging Face repository](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files); its model card lists Apache-2.0. Sonora does not bundle or redistribute those large model files.
 
