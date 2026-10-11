@@ -1,0 +1,55 @@
+name: Bug report
+description: Something does not work as described in the README
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Sonora Studio. This is a free project maintained in spare time, so please give as much detail as you can. Reports with the information below are much easier to fix.
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Where do you generate music?
+      options:
+        - This PC (ComfyUI)
+        - RunPod Serverless
+        - Vast.ai
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, Ubuntu 24.04, ...
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and VRAM
+      placeholder: NVIDIA RTX 2060 12 GB
+    validations:
+      required: true
+  - type: input
+    id: comfyui
+    attributes:
+      label: ComfyUI version
+      description: Shown in the ComfyUI window or in its Manager.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw instead. Add the exact error message if there is one. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Create music
+        2. ...
+  - type: markdown
+    attributes:
+      value: |
+        Please do not paste API keys or screenshots that show them.
