@@ -45,6 +45,21 @@ export const VOICES = {
   choir: 'choir vocals',
 };
 
+/**
+ * Rules: a style that says "no vocals" or "instrumental" contradicts typed lyrics, and ACE-Step obeys the caption: the song
+ * stays instrumental. Used when a remix or a repaint turns an instrumental into a sung song. "Instrumental break" and similar
+ * phrases are kept; the result is never empty.
+ */
+export function withoutInstrumentalWords(tags) {
+  const drop =
+    /\b(no|without)\s+(any\s+)?(vocals?|singing|voice|lyrics|singer)\b|\bvocal-?less\b|^\s*(purely\s+|fully\s+|mostly\s+)?instrumental\b(?!\s+(break|breaks|interlude|section|solo|bridge|passages?|outro|intro|moments?))/i;
+  const kept = String(tags)
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part && !drop.test(part));
+  return kept.length ? kept.join(', ') : 'vocal song';
+}
+
 export function validateInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid request.');
   const str = (key, fallback, max) => {

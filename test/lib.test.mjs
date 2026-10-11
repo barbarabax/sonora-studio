@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateInput, buildWorkflow } from '../lib.mjs';
+import { validateInput, buildWorkflow, withoutInstrumentalWords } from '../lib.mjs';
 
 test('guidance and creativity are validated, defaulted and sent to the language model', () => {
   const base = { tags: 'pop', instrumental: true, duration: 30 };
@@ -42,4 +42,15 @@ test('remix and final quality shape the graph: encoded source as latent, partial
     /Invalid strength/
   );
   assert.throws(() => validateInput({ tags: 'pop', instrumental: true, finish: 'x' }));
+});
+
+test('a style that says no vocals is cleaned before an instrumental becomes a sung remix', () => {
+  assert.equal(
+    withoutInstrumentalWords('indie rock, instrumental storytelling, no vocals, distorted electric guitar'),
+    'indie rock, distorted electric guitar'
+  );
+  assert.equal(withoutInstrumentalWords('lo-fi, without vocals, vocalless, warm pads'), 'lo-fi, warm pads');
+  // phrases about instrumental passages stay: the song can still have a solo
+  assert.equal(withoutInstrumentalWords('pop, instrumental break, bright synths'), 'pop, instrumental break, bright synths');
+  assert.equal(withoutInstrumentalWords('Instrumental, no vocals'), 'vocal song', 'never an empty style');
 });

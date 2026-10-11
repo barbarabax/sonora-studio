@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { buildWorkflow, validateInput, seedsFor, historyFailure, TERMINAL, LANGUAGES, KEYS } from './lib.mjs';
+import { buildWorkflow, validateInput, withoutInstrumentalWords, seedsFor, historyFailure, TERMINAL, LANGUAGES, KEYS } from './lib.mjs';
 import { createPromptAI } from './prompt-ai.mjs';
 import { createAudioEditor } from './audio-editor.mjs';
 import { createAudioLab, createCpuLock } from './audio-lab.mjs';
@@ -987,12 +987,13 @@ export function createStudio(
       throw new Error('The section to process must be 10 to 300 seconds long.');
     const input = validateInput({
       ...original.input,
-      tags,
+      // Rules: when the result is sung, the style must not still say "no vocals" (the source may have been instrumental).
+      tags: instrumental ? tags : withoutInstrumentalWords(tags),
       lyrics: instrumental ? original.input.lyrics || '' : lyrics,
       instrumental,
       referenceId: undefined,
       avoid: typeof body.avoid === 'string' ? body.avoid.slice(0, 500) : original.input.avoid,
-      title: `${original.title} · ${mode === 'remix' ? 'remix' : 'ritocco'}`.slice(0, 100),
+      title: `${original.title} · ${mode === 'remix' ? 'remix' : 'touch-up'}`.slice(0, 100),
       durationMode: 'manual',
       duration: Math.ceil(length),
       durationOverrides: {},
