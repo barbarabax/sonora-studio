@@ -836,7 +836,8 @@ export function createStudio(
       throw new Error('Final quality (SFT) requires RunPod.');
     if (extra.rework && selectedBackend !== 'runpod')
       throw new Error('Remix and section regeneration require RunPod.');
-    if (generationBackend === 'runpod' && referenceAudio)
+    // Rules: on RunPod a reference audio can only travel as a file inside the request (`extra.sourceFile`).
+    if (generationBackend === 'runpod' && referenceAudio && !extra.sourceFile)
       throw new Error('Replacing vocals with reference audio is available with local ComfyUI.');
     // Rules: a reference audio (guides timbre) travels to the GPU like a remix source; it needs RunPod and is never combined with a remix.
     let referenceFile = null;
@@ -893,7 +894,9 @@ export function createStudio(
           job.input.seed,
           job.id,
           config,
-          referenceFile ? `Sonora/${job.id}.mp3` : referenceAudio,
+          referenceFile || (referenceAudio && extra.sourceFile && job.backend === 'runpod')
+            ? `Sonora/${job.id}.mp3`
+            : referenceAudio,
           source
         );
         if (job.input.loraId) {
@@ -1088,21 +1091,24 @@ export function createStudio(
   }
   const covering = new Set();
   async function cover(id, body) {
-    if (generationBackend === 'runpod')
-      throw new Error('Replacing vocals with reference audio requires local ComfyUI.');
+    const viaRunpod = generationBackend === 'runpod';
     if (covering.has(id)) throw new Error('Vocal replacement is already in progress.');
     covering.add(id);
     try {
       const reference = editor.coverReference(id),
         original = db.jobs.find(j => j.id === id);
       if (!original) throw new Error('ACE-Step cover is available only for tracks in the library.');
-      const nodes = await comfy('/object_info');
-      if (!['LoadAudio', 'VAEEncodeAudio', 'ReferenceTimbreAudio'].every(n => nodes[n]))
-        throw new Error('The audio reference nodes are not available in ComfyUI.');
+      if (!viaRunpod) {
+        const nodes = await comfy('/object_info');
+        if (!['LoadAudio', 'VAEEncodeAudio', 'ReferenceTimbreAudio'].every(n => nodes[n]))
+          throw new Error('The audio reference nodes are not available in ComfyUI.');
+      }
       const input = validateInput({
         ...original.input,
         ...body,
-        title: (original.title + ' · nuova voce').slice(0, 100),
+        // Rules: the new voice sings, so the style must not still say "no vocals" (the base is usually instrumental).
+        tags: withoutInstrumentalWords(String(body.tags ?? original.input.tags ?? '')),
+        title: (original.title + ' · new voice').slice(0, 100),
         durationMode: 'manual',
         duration: Math.min(300, Math.max(10, Math.ceil(reference.duration))),
         durationOverrides: {},
@@ -1111,6 +1117,19 @@ export function createStudio(
         variants: 1,
         seed: body.seed ?? -1,
       });
+      if (viaRunpod) {
+        // Rules: on RunPod the base travels inside the request as a 128k MP3, like a remix source (the worker reads Sonora/<job id>.mp3).
+        const sourceFile = path.join(dataDir, 'workflows', `${randomUUID()}-source.mp3`);
+        fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+        try {
+          await encodeSource(reference.file, sourceFile, { start: 0, length: Math.min(300, reference.duration) });
+          const [job] = await submit(input, 'runpod-base', id, original.workspaceId ?? GENERAL, { sourceFile });
+          editor.trackCover(id, job.id);
+          return job;
+        } finally {
+          fs.rmSync(sourceFile, { force: true });
+        }
+      }
       const referenceId = randomUUID(),
         form = new FormData();
       form.append(

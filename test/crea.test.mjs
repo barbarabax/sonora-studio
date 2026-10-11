@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -62,7 +63,7 @@ test('Auto guess reads the tempo and mood from the style words and always return
   assert.ok(empty.bpm >= 40 && empty.bpm <= 220 && ['2', '3', '4', '6'].includes(empty.timesignature));
 });
 
-test('the Creativo ↔ Robusto slider maps to guidance and temperature and is reversible', () => {
+test('the melody-freedom slider maps to guidance and temperature and is reversible', () => {
   assert.deepEqual(sliderToValues(0), { guidance: 1, creativity: 1.2 });
   assert.deepEqual(sliderToValues(50), { guidance: 2, creativity: 0.85 });
   assert.deepEqual(sliderToValues(100), { guidance: 4, creativity: 0.6 });
@@ -330,5 +331,108 @@ test(
     const meta = await r.json();
     assert.equal(meta.by, 'local');
     assert.equal(meta.keyscale, 'A minor');
+  }
+);
+
+test(
+  'new voice on RunPod: the separated base travels as MP3 with the job and the style no longer says "no vocals"',
+  { skip: !hasFfmpeg },
+  async t => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-cover-runpod-'));
+    const submitted = [];
+    const fake = async (url, options) => {
+      const body = options.body ? JSON.parse(options.body) : null;
+      const response = value => new Response(JSON.stringify(value));
+      if (url.endsWith('/health')) return response({ workers: { ready: 0 } });
+      if (url.endsWith('/run')) {
+        submitted.push(body.input);
+        return response({ id: 'remote-' + submitted.length + '-abcdef', status: 'IN_QUEUE' });
+      }
+      return response({ status: 'IN_PROGRESS' });
+    };
+    // A real 4 s tone as the library song; the fake separator writes real stems from it.
+    const id = crypto.randomUUID();
+    fs.mkdirSync(path.join(dir, 'audio'), { recursive: true });
+    const flac = path.join(dir, 'audio', id + '.flac');
+    spawnSync('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=4', '-ac', '2', '-ar', '44100', flac]);
+    const input = {
+      musicModel: 'ace-step',
+      title: 'Strumentale',
+      tags: 'indie rock, instrumental, no vocals, warm bass',
+      lyrics: '',
+      instrumental: true,
+      duration: 4,
+      bpm: 100,
+      timesignature: '4',
+      keyscale: 'C major',
+      language: 'en',
+      quality: 'light',
+      finish: 'fast',
+      variants: 1,
+      seed: 1,
+    };
+    fs.writeFileSync(
+      path.join(dir, 'library.json'),
+      JSON.stringify({
+        version: 1,
+        jobs: [{ id, title: 'Strumentale', status: 'done', input, assets: { flac: id + '.flac', mp3: id + '.mp3' } }],
+      })
+    );
+    const audioTask = async task => {
+      if (task.action === 'separate') {
+        fs.mkdirSync(task.outputDir, { recursive: true });
+        for (const name of ['vocals', 'instrumental'])
+          fs.copyFileSync(task.source, path.join(task.outputDir, name + '.flac'));
+      }
+      return { done: true, duration: 4, rate: 44100, frames: 176400, stemAttenuation: 1 };
+    };
+    const app = createStudio(
+      {
+        comfyUrl: 'http://127.0.0.1:1',
+        model: 'm',
+        encoder: 'e',
+        planner: 'p',
+        vae: 'v',
+        generationBackend: 'runpod',
+        runpod: { endpointId: 'endpoint-test', modelsReady: true, sftReady: true },
+        publicOrigin: 'https://sonora.example.test',
+      },
+      { dataDir: dir, pollMs: 3600000, runpodFetch: fake, runpodKeyReader: () => 'private-test-key', audioTask }
+    );
+    t.after(async () => {
+      await app.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+    await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${app.server.address().port}`;
+    const headers = { Host: 'sonora.example.test', Origin: 'https://sonora.example.test', 'X-Sonora': '1' };
+    const post = (route, body) =>
+      request(url + route, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    assert.equal((await post(`/api/editor/${id}/separate`, {})).status, 202);
+    for (let i = 0; i < 100; i++) {
+      const state = await (await request(url + '/api/state', { headers })).json();
+      if (state.editor.sessions.find(x => x.id === id)?.status === 'ready') break;
+      await new Promise(r => setTimeout(r, 20));
+    }
+    const response = await post(`/api/editor/${id}/cover`, {
+      tags: 'warm indie rock male voice, no vocals',
+      lyrics: '[Verse]\nThe last bus drags its wheels',
+    });
+    assert.equal(response.status, 202);
+    const { job } = await response.json();
+    assert.equal(job.kind, 'vocal-cover');
+    assert.equal(job.parentId, id);
+    assert.equal(submitted.length, 1);
+    const run = submitted[0];
+    assert.ok(run.inputAudio && run.inputAudio.length > 100, 'the base travels with the job');
+    assert.equal(run.workflow['14'].class_type, 'ReferenceTimbreAudio');
+    assert.equal(run.workflow['12'].inputs.audio, `Sonora/${job.id}.mp3`);
+    assert.doesNotMatch(run.workflow['4'].inputs.tags, /no vocals/);
+    assert.match(run.workflow['4'].inputs.tags, /male voice/);
+    assert.equal(run.workflow['4'].inputs.lyrics, '[Verse]\nThe last bus drags its wheels');
   }
 );
