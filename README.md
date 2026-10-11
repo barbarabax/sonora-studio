@@ -2,6 +2,18 @@
 
 Sonora Studio is a local-first music creation workspace built around ComfyUI and ACE-Step 1.5. It includes a music prompt composer, an audio library, editing and stem tools, an audio analysis and mastering workspace, and an optional RunPod LoRA trainer.
 
+## Screenshots
+
+Screenshots show demo tracks, not real generations.
+
+![Create music: a new idea with title, style prompt, lyrics and the song library](docs/screenshots/create.jpg)
+
+![Create music: advanced settings with Auto tempo, key and duration, reference audio and melody freedom](docs/screenshots/create-options.jpg)
+
+![Library](docs/screenshots/library.jpg)
+
+![Prompt and lyrics studio](docs/screenshots/prompt-studio.jpg)
+
 ## What you need
 
 Sonora Studio is the control room, not a one-click installer. It needs a separate machine that actually runs the ACE-Step 1.5 model: either your own computer (ComfyUI) or a rented one (RunPod or Vast.ai). Pick one before you start.

@@ -253,7 +253,7 @@ export function createTimeline(o) {
     return `<label>${field.label} <output data-fx-out="${field.p}"></output><input type="range" data-fx="${field.p}" min="${field.min}" max="${field.max}" step="${field.step}"></label>`;
   };
   fxPanel.innerHTML =
-    `<div class="tl-fx-head"><strong data-fx-title></strong><button type="button" class="text-button" data-fx-close>Chiudi</button></div>` +
+    `<div class="tl-fx-head"><strong data-fx-title></strong><button type="button" class="text-button" data-fx-close>Close</button></div>` +
     SECTIONS.map(
       section =>
         `<details class="tl-fx-section" data-fx-section="${section.block || section.title}"><summary><span>${section.title}</span><i class="dot" hidden></i>${

@@ -267,7 +267,7 @@ export function createAudioEditor({
       throw e;
     }
     fs.closeSync(fd);
-    let label = 'Voce importata';
+    let label = 'Imported voice';
     try {
       label = decodeURIComponent(req.headers['x-audio-name'] || label).slice(0, 100);
     } catch {}
@@ -439,7 +439,7 @@ export function createAudioEditor({
             fs.renameSync(path.join(out, 'vocals.flac'), path.join(out, 'voice.flac'));
             s.voices.push({
               id: voiceId,
-              label: 'Voce ACE · ' + job.title,
+              label: 'ACE voice · ' + job.title,
               kind: 'cover',
               sourceJobId: coverId,
               duration: result.duration,

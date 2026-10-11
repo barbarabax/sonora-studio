@@ -1553,7 +1553,7 @@ export function createStudio(
           kind: 'upload',
           input: {
             title: upload.title,
-            tags: 'brano caricato',
+            tags: 'uploaded track',
             lyrics: '',
             instrumental: true,
             durationMode: 'manual',
