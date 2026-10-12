@@ -8,7 +8,7 @@
 //
 // 
 //
-// exports: LANGUAGES | KEYS | TERMINAL | VOICES | validateInput | seedsFor | buildWorkflow | historyFailure
+// exports: LANGUAGES | KEYS | TERMINAL | VOICES | validateInput | seedsFor | buildWorkflow | historyFailure | resolveModelName
 // used_by: sonora-studio/server.mjs
 // rules:   Never interpolate user text into paths. Keep both duration and seed inputs synchronized.
 // agent:   Codex - 2026-10-04 - Initial implementation for installed native ACE-Step nodes; canonical server-side vocal duration.
@@ -258,6 +258,18 @@ export function buildWorkflow(input, seed, id, config, referenceAudio = null, so
     delete graph['5'];
   }
   return graph;
+}
+
+/**
+ * The name ComfyUI knows a model by. `wanted` is the file name from the config; `available` is the list of the loader node.
+ * A model kept in a sub-folder is listed with its path (`acestep/file.safetensors`, backslashes on Windows): when the exact name
+ * is not listed but exactly one entry has the same file name, that entry is used. Anything else (none, or several) keeps `wanted`.
+ */
+export function resolveModelName(wanted, available) {
+  if (!Array.isArray(available) || available.includes(wanted)) return wanted;
+  const base = name => String(name).split(/[\\/]/).pop();
+  const same = available.filter(name => typeof name === 'string' && base(name) === base(wanted));
+  return same.length === 1 ? same[0] : wanted;
 }
 
 export function historyFailure(entry) {

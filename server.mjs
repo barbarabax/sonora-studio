@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { buildWorkflow, validateInput, withoutInstrumentalWords, seedsFor, historyFailure, TERMINAL, LANGUAGES, KEYS } from './lib.mjs';
+import { buildWorkflow, validateInput, withoutInstrumentalWords, seedsFor, historyFailure, resolveModelName, TERMINAL, LANGUAGES, KEYS } from './lib.mjs';
 import { createPromptAI } from './prompt-ai.mjs';
 import { createAudioEditor } from './audio-editor.mjs';
 import { createAudioLab, createCpuLock } from './audio-lab.mjs';
@@ -203,6 +203,7 @@ export function createStudio(
   const clients = new Set();
   const clientId = randomUUID();
   let health = { online: false, ready: false, message: 'Connecting to ComfyUI…' };
+  let resolvedNames = {}; // model names as the local ComfyUI lists them (sub-folders included)
   let stopped = false,
     polling = false,
     socket = null,
@@ -490,24 +491,32 @@ export function createStudio(
       const results = await Promise.all(names.map(n => comfy('/object_info/' + n)));
       const info = Object.assign({}, ...results);
       const missing = names.filter(n => !info[n]);
-      const has = (node, key, value) => info[node]?.input?.required?.[key]?.[0]?.includes(value);
-      if (!has('UNETLoader', 'unet_name', config.model)) missing.push(config.model);
-      if (!has('DualCLIPLoader', 'clip_name1', config.encoder)) missing.push(config.encoder);
-      if (!has('DualCLIPLoader', 'clip_name2', config.planner)) missing.push(config.planner);
-      if (!has('VAELoader', 'vae_name', config.vae)) missing.push(config.vae);
+      const listed = (node, key) => info[node]?.input?.required?.[key]?.[0];
+      const has = (node, key, value) => listed(node, key)?.includes(value);
+      // Rules: models kept in sub-folders are found by file name; the resolved names are used for ComfyUI only, never for RunPod.
+      resolvedNames = {
+        model: resolveModelName(config.model, listed('UNETLoader', 'unet_name')),
+        encoder: resolveModelName(config.encoder, listed('DualCLIPLoader', 'clip_name1')),
+        planner: resolveModelName(config.planner, listed('DualCLIPLoader', 'clip_name2')),
+        vae: resolveModelName(config.vae, listed('VAELoader', 'vae_name')),
+      };
+      if (!has('UNETLoader', 'unet_name', resolvedNames.model)) missing.push(config.model);
+      if (!has('DualCLIPLoader', 'clip_name1', resolvedNames.encoder)) missing.push(config.encoder);
+      if (!has('DualCLIPLoader', 'clip_name2', resolvedNames.planner)) missing.push(config.planner);
+      if (!has('VAELoader', 'vae_name', resolvedNames.vae)) missing.push(config.vae);
       health = {
         online: true,
         ready: missing.length === 0,
-        fullAvailable: has('DualCLIPLoader', 'clip_name2', config.planner),
+        fullAvailable: has('DualCLIPLoader', 'clip_name2', resolvedNames.planner),
         message: missing.length ? `Missing: ${missing.join(', ')}` : 'Ready to create',
         gpu: stats.devices?.[0]?.name,
         model: config.model,
           ...(comfyBaseDirectory(stats) ? { comfyBase: comfyBaseDirectory(stats) } : {}),
           missingModels: [
-            !has('UNETLoader', 'unet_name', config.model) && { category: 'diffusion_models', name: config.model },
-            !has('DualCLIPLoader', 'clip_name1', config.encoder) && { category: 'text_encoders', name: config.encoder },
-            !has('DualCLIPLoader', 'clip_name2', config.planner) && { category: 'text_encoders', name: config.planner },
-            !has('VAELoader', 'vae_name', config.vae) && { category: 'vae', name: config.vae },
+            !has('UNETLoader', 'unet_name', resolvedNames.model) && { category: 'diffusion_models', name: config.model },
+            !has('DualCLIPLoader', 'clip_name1', resolvedNames.encoder) && { category: 'text_encoders', name: config.encoder },
+            !has('DualCLIPLoader', 'clip_name2', resolvedNames.planner) && { category: 'text_encoders', name: config.planner },
+            !has('VAELoader', 'vae_name', resolvedNames.vae) && { category: 'vae', name: config.vae },
           ].filter(Boolean),
           missingNodes: names.filter(n => !info[n]),
         comfyUrl: comfyUrl(),
@@ -893,7 +902,7 @@ export function createStudio(
           job.input,
           job.input.seed,
           job.id,
-          config,
+          job.backend === 'runpod' ? config : { ...config, ...resolvedNames },
           referenceFile || (referenceAudio && extra.sourceFile && job.backend === 'runpod')
             ? `Sonora/${job.id}.mp3`
             : referenceAudio,
