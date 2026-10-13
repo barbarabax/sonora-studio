@@ -204,6 +204,7 @@ export function createStudio(
   const clientId = randomUUID();
   let health = { online: false, ready: false, message: 'Connecting to ComfyUI…' };
   let resolvedNames = {}; // model names as the local ComfyUI lists them (sub-folders included)
+  let comfyListed = {}; // which of the four ACE-Step files the local ComfyUI lists at all (wherever they live on disk)
   let stopped = false,
     polling = false,
     socket = null,
@@ -500,6 +501,12 @@ export function createStudio(
         planner: resolveModelName(config.planner, listed('DualCLIPLoader', 'clip_name2')),
         vae: resolveModelName(config.vae, listed('VAELoader', 'vae_name')),
       };
+      comfyListed = {
+        model: !!has('UNETLoader', 'unet_name', resolvedNames.model),
+        encoder: !!has('DualCLIPLoader', 'clip_name1', resolvedNames.encoder),
+        planner: !!has('DualCLIPLoader', 'clip_name2', resolvedNames.planner),
+        vae: !!has('VAELoader', 'vae_name', resolvedNames.vae),
+      };
       if (!has('UNETLoader', 'unet_name', resolvedNames.model)) missing.push(config.model);
       if (!has('DualCLIPLoader', 'clip_name1', resolvedNames.encoder)) missing.push(config.encoder);
       if (!has('DualCLIPLoader', 'clip_name2', resolvedNames.planner)) missing.push(config.planner);
@@ -524,6 +531,7 @@ export function createStudio(
       };
       connectSocket();
     } catch (e) {
+      comfyListed = {};
       health = {
         ...health,
         online: false,
@@ -1359,12 +1367,12 @@ export function createStudio(
       }
       if (req.method === 'POST' && url.pathname === '/api/models/plan') {
         if (!localModelsRoot) throw new Error('Save the folder containing ComfyUI main.py first.');
-        const plan = await modelSetup.inspect(localModelsRoot, {
-          model: config.model,
-          encoder: config.encoder,
-          planner: config.planner,
-          vae: config.vae,
-        });
+        await checkHealth().catch(() => {});
+        const plan = await modelSetup.inspect(
+          localModelsRoot,
+          { model: config.model, encoder: config.encoder, planner: config.planner, vae: config.vae },
+          comfyListed
+        );
         await checkHealth().catch(() => {});
         const warning = modelSetupView().warning;
         json(res, 200, warning ? { ...plan, warning } : plan);
@@ -1376,9 +1384,11 @@ export function createStudio(
         if (!localModelsRoot) throw new Error('Save the folder containing ComfyUI main.py first.');
         if (db.jobs.some(j => ['local', 'vast'].includes(j.backend) && !TERMINAL.has(j.status)))
           throw new Error('Wait for active ComfyUI jobs to finish before downloading models.');
+        await checkHealth().catch(() => {});
         const pending = modelSetup.download({
           root: localModelsRoot,
           names: { model: config.model, encoder: config.encoder, planner: config.planner, vae: config.vae },
+          seen: comfyListed,
           confirmed: true,
         });
         pending.catch(() => {

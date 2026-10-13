@@ -77,10 +77,11 @@ test('local model API validates and saves the ComfyUI root before showing the fi
     if (route === '/system_stats') return send({ devices: [{ name: 'Test GPU' }] });
     if (route.startsWith('/object_info/')) {
       const node = route.split('/').pop();
+      // Rules: this ComfyUI lists no models yet, so the plan comes from the disk (a model ComfyUI lists counts as present).
       const definitions = {
-        UNETLoader: { unet_name: [[names.model]] },
-        DualCLIPLoader: { clip_name1: [[names.encoder]], clip_name2: [[names.planner]] },
-        VAELoader: { vae_name: [[names.vae]] },
+        UNETLoader: { unet_name: [[]] },
+        DualCLIPLoader: { clip_name1: [[]], clip_name2: [[]] },
+        VAELoader: { vae_name: [[]] },
       };
       return send({ [node]: { input: { required: definitions[node] || {} } } });
     }

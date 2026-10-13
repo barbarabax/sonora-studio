@@ -99,7 +99,12 @@ export function createModelSetup({
     });
   }
 
-  async function inspect(input, names = {}) {
+  /**
+   * `names` are the file names from the config (a sub-folder or a full path in front of the name is ignored: only the file name
+   * matters on disk). `seen` marks the settings ComfyUI already lists, wherever the file is (sub-folders, extra_model_paths.yaml):
+   * those count as present and are never downloaded again.
+   */
+  async function inspect(input, names = {}, seen = {}) {
     const root = await validateRoot(input);
     const files = await metadata();
     const modelsDir = path.join(root, 'models');
@@ -117,9 +122,13 @@ export function createModelSetup({
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
-      const name = String(names[item.setting] || path.basename(item.path));
+      const name = String(names[item.setting] || path.basename(item.path)).split(/[\\/]/).pop();
       if (name !== path.basename(name) || !name.endsWith('.safetensors'))
         throw new Error('Custom model names must be safe .safetensors filenames.');
+      if (seen[item.setting]) {
+        entries.push({ name, category, bytes: item.size, status: 'present', remotePath: item.path, listedByComfyui: true });
+        continue;
+      }
       const target = path.join(modelsDir, category, name);
       let state = 'missing';
       try {
@@ -147,14 +156,14 @@ export function createModelSetup({
     return { root, files: entries, totalBytes };
   }
 
-  async function download({ root: input, names = {}, confirmed } = {}) {
+  async function download({ root: input, names = {}, seen = {}, confirmed } = {}) {
     if (confirmed !== true) throw new Error('Confirm the large model download before it starts.');
     if (controller) throw new Error('An ACE-Step model download is already running.');
     controller = new AbortController();
     const signal = controller.signal;
     let completed = 0;
     try {
-      const plan = await inspect(input, names);
+      const plan = await inspect(input, names, seen);
       const missing = plan.files.filter(file => file.status === 'missing');
       if (!missing.length) {
         controller = null;
