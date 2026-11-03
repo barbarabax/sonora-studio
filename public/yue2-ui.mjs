@@ -19,7 +19,7 @@ import {
   progressionChords,
   applyProgression,
 } from './chord-presets.mjs';
-import { BED_KEYS, writeBed } from './chord-bed.mjs';
+import { BED_KEYS, writeBed, lyricSectionLines, roleOf } from './chord-bed.mjs';
 import { parseDuration } from './song-duration.mjs';
 import { planToMidi, readMidi, midiToPlan } from './midi-io.mjs';
 import { renderScore, followScore } from './score-view.mjs';
@@ -1022,6 +1022,39 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
     <input id="yue-custom-${id}" name="yueCustom${id}" aria-label="Chords ${label.toLowerCase()}" value="${id === 'chorus' ? 'F G Am C' : id === 'bridge' ? 'Dm Am F G' : 'C G Am F'}" maxlength="400" spellcheck="false"></div>`
     )
     .join('');
+  // Rules: every other part named in the lyrics (intro, pre-chorus, outro…) gets its own optional chord box; empty means it follows the loop it would use anyway.
+  $('#yue-progression-rows').insertAdjacentHTML('afterend', '<div id="yue-extra-rows"></div>');
+  const MAIN_PARTS = new Set(roles.map(([id]) => id));
+  const partLabel = label => label.charAt(0).toUpperCase() + label.slice(1).replace(/-/g, ' ');
+  const followsLabel = label =>
+    roleOf(label) === 1 ? 'the choruses' : roleOf(label) === 2 ? 'the bridge' : 'the verses';
+  function paintExtraParts() {
+    const host = $('#yue-extra-rows');
+    const kept = new Map(
+      [...host.querySelectorAll('input[data-part]')].map(input => [input.dataset.part, input.value])
+    );
+    const labels = [...new Set(lyricSectionLines($('#lyrics').value).map(s => s.label))].filter(
+      label => !MAIN_PARTS.has(label)
+    );
+    host.innerHTML = labels
+      .map(
+        label => `
+    <div class="yue-progression"><label for="yue-part-${label}">${escape(partLabel(label))}</label>
+    <input id="yue-part-${label}" data-part="${label}" aria-label="Chords ${escape(partLabel(label).toLowerCase())}" value="${escape(kept.get(label) || '')}" placeholder="Same as ${followsLabel(label)}" maxlength="400" spellcheck="false"></div>`
+      )
+      .join('');
+    for (const input of host.querySelectorAll('input'))
+      input.addEventListener('input', () => (simpleDirty = true));
+  }
+  const partChordsNow = () =>
+    Object.fromEntries(
+      [...$('#yue-extra-rows').querySelectorAll('input[data-part]')].map(input => [
+        input.dataset.part,
+        input.value,
+      ])
+    );
+  $('#lyrics').addEventListener('input', paintExtraParts);
+  paintExtraParts();
   $('#yue-bed-key').innerHTML = BED_KEYS.map(
     k => `<option value="${k}">${escape(k.endsWith('m') ? k.slice(0, -1) + ' minor' : k + ' major')}</option>`
   ).join('');
@@ -1129,6 +1162,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       seed: 1,
       targetSeconds: bedTarget(),
       custom: roles.map(([id]) => $('#yue-custom-' + id).value),
+      partChords: partChordsNow(),
     });
     stopPlayback();
     $('#yue-cot').value = 'full';

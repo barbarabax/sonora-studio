@@ -154,3 +154,31 @@ test('chordsOnly keeps every chord and bar of an extracted plan and empties the 
   assert.match(kept, /^Z\d+\|$/m);
   assert.throws(() => chordsOnly('not a plan'), /tempo and meter/);
 });
+
+test('a part of its own (pre-chorus, intro, outro) plays the chords written for it, the others keep following verse, chorus and bridge', () => {
+  const lyrics =
+    '[Intro]\n\n[Verse]\nline a\nline b\n[Pre-Chorus]\nline c\nline d\n[Chorus]\nline e\nline f\n[Outro]\nline g';
+  const bed = writeBed({
+    bpm: 100,
+    key: 'C',
+    lyrics,
+    custom: ['C G Am F', 'F G Am C', 'Dm Am F G'],
+    partChords: { 'pre-chorus': 'Dm G', intro: '', outro: 'F C' },
+  });
+  const chordsOf = label => {
+    const plan = parsePlan(bed.abc);
+    return plan.sections.find(s => s.name === label).slots.map(s => s.chord);
+  };
+  assert.deepEqual([...new Set(chordsOf('pre-chorus'))], ['Dm', 'G']);
+  assert.deepEqual([...new Set(chordsOf('outro'))], ['F', 'C']);
+  assert.deepEqual(
+    chordsOf('intro').slice(0, 4),
+    ['C', 'G', 'Am', 'F'],
+    'an empty box follows the verse loop'
+  );
+  assert.deepEqual(chordsOf('chorus').slice(0, 4), ['F', 'G', 'Am', 'C']);
+  assert.throws(
+    () => writeBed({ bpm: 100, key: 'C', lyrics, partChords: { outro: 'H9 X' } }),
+    /valid chords for the outro/
+  );
+});

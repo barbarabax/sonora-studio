@@ -1,7 +1,7 @@
 // @codedna
 // description: The chord bed: a YuE2 plan written at once from tempo, key and meter, chords over rests, one part per lyrics tag.
 //
-// exports: METERS | BED_KEYS | AUTO_MAJOR | AUTO_MINOR | lyricSectionLines | writeBed
+// exports: METERS | BED_KEYS | AUTO_MAJOR | AUTO_MINOR | lyricSectionLines | roleOf | writeBed
 // used_by: public/midi-io.mjs
 //                   public/yue2-ui.mjs
 // related: lib.mjs lyricSections — the same tag names on the server; public/chord-presets.mjs — the genre progressions and their spelling in a key
@@ -139,7 +139,7 @@ function fitBars(base, sung, totalBars) {
   }
   return blocks.map(b => b * 4);
 }
-const roleOf = label =>
+export const roleOf = label =>
   ['chorus', 'post-chorus', 'loop'].includes(label)
     ? 1
     : ['bridge', 'pre-outro', 'development'].includes(label)
@@ -166,6 +166,7 @@ export function writeBed({
   seed = 1,
   parts = ['auto', 'auto', 'auto'],
   custom = [],
+  partChords = {},
   targetSeconds = 0,
 }) {
   if (!Number.isInteger(bpm) || bpm < 40 || bpm > 240)
@@ -198,6 +199,18 @@ export function writeBed({
     used.add(index);
     return { chords: progressionChords(key, pool[index]), bars: 1 };
   });
+  // Rules: a part of its own (intro, pre-chorus, outro…) with chords written for it plays exactly those; the others follow verse, chorus or bridge.
+  const ownLoops = {};
+  for (const [label, text] of Object.entries(partChords || {})) {
+    const chords = String(text || '')
+      .trim()
+      .split(/[\s,|]+/)
+      .filter(Boolean);
+    if (!chords.length) continue;
+    if (chords.length > 32 || chords.some(c => !isChord(c)))
+      throw new Error(`Write 1 to 32 valid chords for the ${label} (e.g. C Am F G7).`);
+    ownLoops[label] = { chords, bars: 1, exact: true };
+  }
   let sections = lyricSectionLines(lyrics);
   if (!sections.length) sections = ['verse', 'chorus', 'verse', 'chorus'].map(label => ({ label, lines: 2 }));
   let abc = `X:1\nT:\nM:${meter}\nL:1/16\nQ:1/4=${bpm}\nV: Vocal clef=treble name="Vocal Melody" snm="Vocal"\nV: Ins clef=treble name="Ins Melody" snm="Inst."\nK:${key}\n`;
@@ -214,7 +227,7 @@ export function writeBed({
       )
     : sections.map(s => sectionBars(s.label, s.lines));
   for (const [index, { label }] of sections.entries()) {
-    const { chords, bars: perChord, exact } = progressions[roleOf(label)];
+    const { chords, bars: perChord, exact } = ownLoops[label] || progressions[roleOf(label)];
     const bars = lengths[index];
     abc += `% ${label}\n`;
     let row = [];
