@@ -2,6 +2,21 @@
 
 Sonora Studio is a local-first music creation workspace. It makes songs with **ACE-Step 1.5** (through ComfyUI on your PC, RunPod or Vast.ai) and with **YuE2**, which writes the melody and chords first and then sings them. YuE2 can run **on your own PC with a light, quantised model (yue2.cpp, Q8_0), even on a 12 GB graphics card**. Sonora also includes a music prompt composer, an audio library, editing, stem and mixer tools, an audio analysis and mastering workspace, and an optional RunPod LoRA trainer.
 
+**What is inside**
+
+- **Create music**: new songs with ACE-Step or YuE2, plus Remix and Edit for songs you already made.
+- **YuE2**: melody and chords first (you can edit them, or choose the chord loops of every part), then the singing; the **Reference** tab starts from a song or a MIDI file.
+- **Prompt and lyrics assistant** (needs an AI key, see below): improves style prompts, writes lyrics, suggests tempo and key.
+- **Audio editor**, **Instrument mixer** (stem separation, extra instrument layers, lossless mixdown) and **Audio Lab** (analysis and mastering).
+- **LoRA trainer** (optional, on RunPod) and a ready-made catalogue of YuE2 adapters.
+- **Library, Favorites, Archive and workspaces** to keep your songs, with their settings, on your own computer.
+- **Setup check**, **YuE2 model downloader** and a **portable Windows download**.
+
+> **AI features need your own API key.** Making music does **not** need one. The writing and listening helpers (prompt and lyrics assistant, mastering suggestions, listening to a track) work only if you add your own **DeepSeek** or **OpenAI** API key in *Prompt and lyrics → Set up AI*. Without a key everything else works and those helpers are unavailable or simpler. The provider bills your own account.
+
+> **Licences and responsibility.** Sonora Studio is only a tool for running third-party models, which keep their own licences and are not distributed with it. You are responsible for how you use it and for what you create (model licences, copyright, rights to reference audio, commercial use). The software is provided "as is", without warranty. Read the [full notice in English and Italian](LICENSES-AND-RESPONSIBILITY.md).
+> **Licenze e responsabilità.** Sonora Studio è solo uno strumento per usare modelli di terze parti, che hanno le proprie licenze e non sono distribuiti con il programma. La responsabilità dell'uso e di ciò che crei è tua. Leggi l'[avviso completo](LICENSES-AND-RESPONSIBILITY.md).
+
 ## Screenshots
 
 Screenshots show demo tracks, not real generations.
@@ -221,9 +236,9 @@ This integration only lists instances and connects to the instance you select. I
 
 Provider API keys are sent to the local Sonora server, encrypted at rest with AES-256-GCM, and never included in browser responses. The local encryption key is stored under `data/` (or the path in `SONORA_SECRET_FILE`). Keep the Windows account or Linux data directory protected; local disk encryption and account security still matter. Never commit `data/`, share API keys, or put them in screenshots.
 
-## Optional: AI assistant (OpenAI)
+## Optional: AI assistant (DeepSeek or OpenAI)
 
-Making music does **not** need any AI key. An OpenAI API key only unlocks writing and listening helpers. Without it Sonora still works; those features are simply unavailable or fall back to a simpler version.
+Making music does **not** need any AI key. A **DeepSeek** or **OpenAI** API key (your own, from your account on that service) only unlocks writing and listening helpers. Without it Sonora still works; those features are simply unavailable or fall back to a simpler version.
 
 | Feature | Without a key | With a key |
 |---|---|---|
@@ -236,10 +251,10 @@ Making music does **not** need any AI key. An OpenAI API key only unlocks writin
 **How to add the key**
 
 1. Open **Prompt and lyrics** and scroll to **Configure AI**.
-2. Choose **OpenAI**.
+2. Choose **DeepSeek** or **OpenAI**.
 3. Paste your API key and save. Sonora loads the models available for your key; pick one (choose an audio-capable model to use *Listen to a track*).
 
-The key is encrypted on this computer and is never returned to the browser. Requests are billed to your own OpenAI account, so check OpenAI's pricing. Create your key on the OpenAI platform and never share it or put it in screenshots.
+The key is encrypted on this computer and is never returned to the browser. Requests are billed to your own DeepSeek or OpenAI account, so check the provider's pricing. Create your key on the provider's website (platform.deepseek.com or platform.openai.com) and never share it or put it in screenshots. *Listen to a track* needs an OpenAI audio-capable model, because it sends the audio to the service; the Audio Lab suggestions send only measurements, never the audio.
 
 ## Optional configuration
 

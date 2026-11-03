@@ -151,6 +151,9 @@ async function main() {
 Your songs and settings stay in the "data" folder next to Sonora.exe. Copy that folder to keep them when you update.
 If Sonora does not start, double-click "Sonora (show errors).cmd".
 README.md explains everything else, including YuE2 on your own PC.
+
+Sonora Studio is only a tool for running third-party models, which keep their own licences. You are responsible for how you use it
+and for what you create. Read LICENSES-AND-RESPONSIBILITY.md (English and Italian).
 `
   );
   fs.writeFileSync(
