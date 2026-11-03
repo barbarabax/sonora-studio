@@ -175,7 +175,7 @@ If Sonora runs on a server (a VPS) but your graphics card is at home, the engine
 3. **In Sonora on the server**, open **Provider settings → YuE2 · This PC**, tick **The engine runs on another computer**, keep the port (18087) and choose **Check and save**, then restart Sonora. In `config.json` the same is `"yue2": { "cpp": { "remote": true, "port": 18087 } }`.
 4. In **Create music** choose YuE2 and **This PC**. The **Setup check** shows whether the tunnel answers.
 
-Good to know: the PC, the engine and the tunnel must all be running; a song takes about as long as it lasts, so the tunnel must stay up that long, and a song interrupted by a broken tunnel is not resent. LoRA adapters are not managed from the server in this mode: install them on the PC (`--adapters`) and start the engine with them.
+Good to know: the PC, the engine and the tunnel must all be running; a song takes about as long as it lasts, so the tunnel must stay up that long, and a song interrupted by a broken tunnel is not resent. LoRAs are installed on the PC, not from the server: put them in the engine's adapters folder, start it with `--adapters` and **restart yue-server** after adding or removing one (it reads that folder only at start). The server then lists the LoRAs the engine loaded and you pick them per song as usual.
 
 ### YuE2 on RunPod (optional, advanced)
 

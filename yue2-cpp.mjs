@@ -323,6 +323,7 @@ export function createCppYue2(settings = {}, { dataDir, fetchImpl = fetch, spawn
 
   return {
     configured,
+    remote,
     /** The LoRA folder changed: restart the engine before the next request (when it is idle). */
     adaptersChanged() {
       if (!remote) stale = true;

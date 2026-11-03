@@ -197,6 +197,13 @@ export function createStudio(
   // Songs started with Python (no remote.engine) keep being followed by the Python backend.
   const yue2Python = createLocalYue2(config.yue2?.local, { dataDir });
   const yue2Cpp = createCppYue2(yue2CppConfig, { dataDir });
+  // Rules: with the engine on another computer its LoRAs are the ones it loaded at start (/props); they cannot be installed from here.
+  let remoteLora = [];
+  const refreshRemoteLora = async () => {
+    if (!yue2Cpp.remote) return;
+    const names = await yue2Cpp.engineAdapters();
+    if (names) remoteLora = names;
+  };
   const ofJob = job => (job.remote?.engine === 'cpp' ? yue2Cpp : yue2Python);
   const yue2Adapters = createYue2Adapters({
     dir:
@@ -254,8 +261,12 @@ export function createStudio(
       if (host !== 'local' || !yue2Cpp.configured)
         throw new Error('YuE2 LoRAs only work on the PC, with the yue2.cpp engine.');
       for (const a of list)
-        if (!yue2Adapters.isInstalled(a.id))
-          throw new Error(`The LoRA «${yue2Adapters.entry(a.id).name}» is not installed.`);
+        if (yue2Cpp.remote ? !remoteLora.includes(a.id) : !yue2Adapters.isInstalled(a.id))
+          throw new Error(
+            yue2Cpp.remote
+              ? `The engine on your other computer has not loaded the LoRA «${yue2Adapters.entry(a.id).name}»: put it in its adapters folder there and restart yue-server.`
+              : `The LoRA «${yue2Adapters.entry(a.id).name}» is not installed.`
+          );
     }
     return { adapters: list.map(a => ({ name: a.id, ar: a.ar, nar: a.nar })) };
   }
@@ -666,6 +677,7 @@ export function createStudio(
   async function checkHealth() {
     lastHealth = Date.now();
     if (musicModel === 'yue2') {
+      await refreshRemoteLora();
       // Rules: the RunPod endpoint decides readiness when there is one; a song made on this PC skips this check at submit time.
       health = {
         ...(await (yue2Settings.endpointId ? yue2Runpod : yue2Local).health()),
@@ -1699,7 +1711,7 @@ export function createStudio(
           yue2Runpod: !!yue2Settings.endpointId,
           yue2Local: yue2Local.configured,
           yue2MelodyFreedom: yue2Cpp.configured,
-          yue2Lora: yue2Adapters.available,
+          yue2Lora: yue2Adapters.available || yue2Cpp.remote === true,
           yue2LoraRunpod: !!yue2Settings.endpointId,
           providers: {
             local: { comfyUrl: localComfyUrl, comfyRoot: localModelsRoot },
@@ -2202,13 +2214,27 @@ export function createStudio(
           })),
         };
       };
+      const remoteList = async () => {
+        await refreshRemoteLora();
+        return {
+          available: true,
+          adapters: yue2Adapters.list().map(a => ({
+            ...a,
+            installed: remoteLora.includes(a.id),
+            downloading: false,
+            error: undefined,
+          })),
+        };
+      };
       if (req.method === 'GET' && url.pathname === '/api/yue2/adapters') {
         json(
           res,
           200,
           loraHost === 'runpod'
             ? runpodList()
-            : { available: yue2Adapters.available, adapters: yue2Adapters.list() }
+            : yue2Cpp.remote
+              ? await remoteList()
+              : { available: yue2Adapters.available, adapters: yue2Adapters.list() }
         );
         return;
       }
@@ -2236,6 +2262,10 @@ export function createStudio(
         json(res, 200, runpodList());
         return;
       }
+      if (adapterMatch && yue2Cpp.remote && ['POST', 'DELETE'].includes(req.method))
+        throw new Error(
+          'The engine runs on another computer: add or remove the LoRA in its adapters folder there, then restart yue-server.'
+        );
       if (adapterMatch && req.method === 'POST') {
         json(res, 202, yue2Adapters.install(adapterMatch[1]));
         return;

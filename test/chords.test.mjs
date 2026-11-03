@@ -18,7 +18,7 @@ import {
 } from '../public/chord-presets.mjs';
 import { parsePlan, setChords, isChord } from '../public/abc-plan.mjs';
 
-const PLAN = fs.readFileSync(new URL('./fixtures/yue2-plan.abc', import.meta.url), 'utf8');
+const PLAN = fs.readFileSync(new URL('./fixtures/yue2-plan.abc', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 test('the real plan becomes timed notes in the right key, with chords and sections', () => {
   const score = parseScore(PLAN);

@@ -15,7 +15,7 @@ import { validateInput } from '../lib.mjs';
 import { createRunpodBackend } from '../runpod-backend.mjs';
 import { parsePlan, setChord, isChord, planSummary } from '../public/abc-plan.mjs';
 
-const PLAN = fs.readFileSync(new URL('./fixtures/yue2-plan.abc', import.meta.url), 'utf8');
+const PLAN = fs.readFileSync(new URL('./fixtures/yue2-plan.abc', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 test('the ABC plan is parsed into header, sections and editable chords', () => {
   const plan = parsePlan(PLAN);

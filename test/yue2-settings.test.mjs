@@ -133,7 +133,7 @@ test('the engine can be set to run on another computer: only a port is saved, an
     const second = await start(closers, dir);
     const config = await second.config();
     assert.equal(config.yue2Local, true, 'YuE2 on this PC counts as configured without any file');
-    assert.equal(config.yue2Lora, false, 'LoRA adapters are managed on the other computer');
+    assert.equal(config.yue2Lora, true, 'the LoRAs of the engine on the other computer can be chosen');
     assert.equal(config.providers.yue2.cpp.remote, true);
     assert.equal(config.providers.yue2.cpp.port, 18088);
     const setup = await (

@@ -228,3 +228,20 @@ test('an engine on another computer needs no files here, is never started, and i
   assert.match(down.message, /SSH tunnel/);
   await assert.rejects(cpp.call({ action: 'plan' }, 1000), /not reachable on port 19999/);
 });
+
+test('with the engine on another computer, its loaded LoRAs are read from /props and none can be installed here', async () => {
+  const cpp = createCppYue2(
+    { remote: true, port: 19998 },
+    {
+      dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-cpp-remote-lora-')),
+      fetchImpl: async address =>
+        address.endsWith('/props')
+          ? new Response(JSON.stringify({ adapters: [{ name: 'lora-a' }, { name: 'lora-b' }] }), {
+              status: 200,
+            })
+          : new Response('{}', { status: 200 }),
+    }
+  );
+  assert.equal(cpp.remote, true);
+  assert.deepEqual(await cpp.engineAdapters(), ['lora-a', 'lora-b']);
+});
