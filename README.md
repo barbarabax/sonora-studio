@@ -45,7 +45,7 @@ New to ACE-Step 1.5? The project's own [tutorial and FAQ](https://github.com/ace
 
 ## Easiest start: the portable Windows download
 
-1. Download `Sonora-Studio-<version>-win-x64.zip` from the [Releases](https://github.com/barbarabax/sonora-studio/releases) page and extract it anywhere (a short path such as `C:Sonora` is best). Node.js is included; you do not install it.
+1. Download `Sonora-Studio-<version>-win-x64.zip` from the [Releases](https://github.com/barbarabax/sonora-studio/releases) page and extract it anywhere (a short path such as `C:\Sonora` is best). Node.js is included; you do not install it.
 2. Double-click **`Sonora.exe`**. Your browser opens Sonora Studio. Windows may warn that the program is from an unknown publisher because it is not signed: choose **More info**, then **Run anyway**.
 3. Open **Provider settings**. The **Setup check** at the top lists what your computer has (Node.js, FFmpeg, NVIDIA card, ComfyUI, models) and what is still missing, with one hint for each.
 4. For **YuE2 on your own PC**, use the **YuE2 · This PC** card: choose a folder and **Download missing files** (Sonora downloads the model files from Hugging Face and verifies their checksums), enter the engine program, then **Check and save** and restart. For **ACE-Step**, follow steps 5 and 6 of the guide below.
