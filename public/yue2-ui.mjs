@@ -1009,52 +1009,28 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       );
   });
   /* ---------- chord bed: the user's chords over rests, YuE2 writes the melody ---------- */
-  const roles = [
-    ['verse', 'Verses'],
-    ['chorus', 'Choruses'],
-    ['bridge', 'Bridge'],
-  ];
-  $('#yue-progression-rows').innerHTML = roles
-    .map(
-      ([id, label]) => `
-    <div class="yue-progression"><label for="yue-bed-${id}">${label}</label>
-    <select id="yue-bed-${id}" aria-label="Loop for ${label.toLowerCase()}"></select>
-    <input id="yue-custom-${id}" name="yueCustom${id}" aria-label="Chords ${label.toLowerCase()}" value="${id === 'chorus' ? 'F G Am C' : id === 'bridge' ? 'Dm Am F G' : 'C G Am F'}" maxlength="400" spellcheck="false"></div>`
-    )
-    .join('');
-  // Rules: every other part named in the lyrics (intro, pre-chorus, outro…) gets its own optional chord box; empty means it follows the loop it would use anyway.
-  $('#yue-progression-rows').insertAdjacentHTML('afterend', '<div id="yue-extra-rows"></div>');
-  const MAIN_PARTS = new Set(roles.map(([id]) => id));
+  // Rules: one loop per part named in the lyrics, listed in song order (first appearance). Verse, chorus and bridge start with
+  // chords of their own; every other part (intro, pre-chorus, outro, solo…) starts as "same as" the loop it would follow anyway.
+  const MAIN_PARTS = ['verse', 'chorus', 'bridge'];
+  const DEFAULT_LOOPS = { verse: 'C G Am F', chorus: 'F G Am C', bridge: 'Dm Am F G' };
   const partLabel = label => label.charAt(0).toUpperCase() + label.slice(1).replace(/-/g, ' ');
   const followsLabel = label =>
     roleOf(label) === 1 ? 'the choruses' : roleOf(label) === 2 ? 'the bridge' : 'the verses';
-  function paintExtraParts() {
-    const host = $('#yue-extra-rows');
-    const kept = new Map(
-      [...host.querySelectorAll('input[data-part]')].map(input => [input.dataset.part, input.value])
-    );
-    const labels = [...new Set(lyricSectionLines($('#lyrics').value).map(s => s.label))].filter(
-      label => !MAIN_PARTS.has(label)
-    );
-    host.innerHTML = labels
-      .map(
-        label => `
-    <div class="yue-progression"><label for="yue-part-${label}">${escape(partLabel(label))}</label>
-    <input id="yue-part-${label}" data-part="${label}" aria-label="Chords ${escape(partLabel(label).toLowerCase())}" value="${escape(kept.get(label) || '')}" placeholder="Same as ${followsLabel(label)}" maxlength="400" spellcheck="false"></div>`
-      )
-      .join('');
-    for (const input of host.querySelectorAll('input'))
-      input.addEventListener('input', () => (simpleDirty = true));
-  }
-  const partChordsNow = () =>
-    Object.fromEntries(
-      [...$('#yue-extra-rows').querySelectorAll('input[data-part]')].map(input => [
-        input.dataset.part,
-        input.value,
-      ])
-    );
-  $('#lyrics').addEventListener('input', paintExtraParts);
-  paintExtraParts();
+  const loops = new Map(); // part -> { preset: 'follow' | 'custom' | index of a ready-made loop, chords }
+  const loopOf = label => {
+    if (!loops.has(label))
+      loops.set(
+        label,
+        MAIN_PARTS.includes(label)
+          ? { preset: 'custom', chords: DEFAULT_LOOPS[label] }
+          : { preset: 'follow', chords: '' }
+      );
+    return loops.get(label);
+  };
+  const bedParts = () => {
+    const labels = [...new Set(lyricSectionLines($('#lyrics').value).map(s => s.label))];
+    return labels.length ? labels : MAIN_PARTS;
+  };
   $('#yue-bed-key').innerHTML = BED_KEYS.map(
     k => `<option value="${k}">${escape(k.endsWith('m') ? k.slice(0, -1) + ' minor' : k + ' major')}</option>`
   ).join('');
@@ -1062,39 +1038,67 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
   $('#yue-simple-quality').innerHTML = QUALITIES.map(
     q => `<option value="${q.symbol}">${q.label}</option>`
   ).join('');
-  function paintBedParts() {
+  let paintedParts = '';
+  function paintLoops(force = false) {
+    const parts = bedParts();
+    const signature = parts.join('|') + '#' + $('#yue-bed-key').value;
+    if (!force && signature === paintedParts) return;
+    paintedParts = signature;
     const key = $('#yue-bed-key').value;
-    for (const [id] of roles) {
-      const select = $('#yue-bed-' + id);
-      const before = select.value;
-      select.innerHTML =
-        '<option value="custom">Custom · write the chords</option>' +
-        PRESETS.map(
-          (p, i) =>
-            `<option value="${i}">${escape(p.genre + ' · ' + p.name + ' — ' + progressionChords(key, p.degrees).join(' '))}</option>`
-        ).join('');
-      select.value = before || 'custom';
-      if (select.value !== 'custom')
-        $('#yue-custom-' + id).value = progressionChords(key, PRESETS[Number(select.value)].degrees).join(
-          ' '
-        );
+    const presets = PRESETS.map(
+      (p, i) =>
+        `<option value="${i}">${escape(p.genre + ' · ' + p.name + ' — ' + progressionChords(key, p.degrees).join(' '))}</option>`
+    ).join('');
+    $('#yue-progression-rows').innerHTML = parts
+      .map(label => {
+        const name = escape(partLabel(label));
+        const follow = MAIN_PARTS.includes(label)
+          ? ''
+          : `<option value="follow">Same as ${followsLabel(label)}</option>`;
+        return `
+    <div class="yue-progression"><label for="yue-bed-${label}">${name}</label>
+    <select id="yue-bed-${label}" data-part="${label}" aria-label="Loop for ${name.toLowerCase()}">${follow}<option value="custom">Custom · write the chords</option>${presets}</select>
+    <input id="yue-custom-${label}" data-part="${label}" aria-label="Chords ${name.toLowerCase()}" maxlength="400" spellcheck="false" placeholder="Same as ${followsLabel(label)}"></div>`;
+      })
+      .join('');
+    for (const label of parts) {
+      const loop = loopOf(label);
+      const select = $('#yue-bed-' + label);
+      if (/^\d+$/.test(String(loop.preset)) && PRESETS[Number(loop.preset)])
+        loop.chords = progressionChords(key, PRESETS[Number(loop.preset)].degrees).join(' ');
+      select.value = String(loop.preset);
+      $('#yue-custom-' + label).value = loop.chords;
     }
+    $('#yue-simple-target').innerHTML = parts
+      .map(label => `<option value="${label}">${escape(partLabel(label))}</option>`)
+      .join('');
     simpleDirty = true;
   }
-  paintBedParts();
-  $('#yue-bed-key').addEventListener('change', paintBedParts);
-  for (const [id] of roles) {
-    $('#yue-bed-' + id).addEventListener('change', () => {
-      const preset = PRESETS[Number($('#yue-bed-' + id).value)];
-      if (preset)
-        $('#yue-custom-' + id).value = progressionChords($('#yue-bed-key').value, preset.degrees).join(' ');
-      simpleDirty = true;
-    });
-    $('#yue-custom-' + id).addEventListener('input', () => {
-      $('#yue-bed-' + id).value = 'custom';
-      simpleDirty = true;
-    });
-  }
+  paintLoops(true);
+  $('#yue-bed-key').addEventListener('change', () => paintLoops(true));
+  $('#lyrics').addEventListener('input', () => paintLoops());
+  $('#yue-progression-rows').addEventListener('change', event => {
+    const select = event.target.closest('select[data-part]');
+    if (!select) return;
+    const label = select.dataset.part;
+    const loop = loopOf(label);
+    loop.preset = select.value;
+    const preset = PRESETS[Number(select.value)];
+    if (select.value === 'follow') loop.chords = '';
+    else if (preset) loop.chords = progressionChords($('#yue-bed-key').value, preset.degrees).join(' ');
+    $('#yue-custom-' + label).value = loop.chords;
+    simpleDirty = true;
+  });
+  $('#yue-progression-rows').addEventListener('input', event => {
+    const input = event.target.closest('input[data-part]');
+    if (!input) return;
+    const label = input.dataset.part;
+    const loop = loopOf(label);
+    loop.chords = input.value;
+    loop.preset = 'custom';
+    $('#yue-bed-' + label).value = 'custom';
+    simpleDirty = true;
+  });
   $('#yue-bed').addEventListener('input', () => {
     simpleDirty = true;
   });
@@ -1109,15 +1113,27 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
   $('#yue-add-chord').addEventListener('click', () => {
     const id = $('#yue-simple-target').value;
     const input = $('#yue-custom-' + id);
+    if (!input) return;
     input.value = (
       input.value.trim() +
       ' ' +
       composeChord($('#yue-simple-root').value, $('#yue-simple-quality').value)
     ).trim();
-    $('#yue-bed-' + id).value = 'custom';
     simpleDirty = true;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  /** Chords of the three loops (verse, chorus, bridge) and of every other part that has chords of its own. */
+  function bedLoops() {
+    const parts = bedParts();
+    return {
+      custom: MAIN_PARTS.map(label => loopOf(label).chords),
+      partChords: Object.fromEntries(
+        parts
+          .filter(label => !MAIN_PARTS.includes(label) && loopOf(label).chords.trim())
+          .map(label => [label, loopOf(label).chords])
+      ),
+    };
+  }
   /** Rules: the song is as long as its plan, so the length is chosen here: 0 = follow the sung lines, otherwise seconds from 0:10 to 5:00. */
   function bedTarget() {
     if ($('#yue-bed-length').value !== 'manual') return 0;
@@ -1161,8 +1177,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       lyrics: fields.lyrics,
       seed: 1,
       targetSeconds: bedTarget(),
-      custom: roles.map(([id]) => $('#yue-custom-' + id).value),
-      partChords: partChordsNow(),
+      ...bedLoops(),
     });
     stopPlayback();
     $('#yue-cot').value = 'full';
@@ -1472,7 +1487,8 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       $('#yue-use-chords').checked = !!input.yueUseChords;
       $('#yue-melody-freedom').value = input.yueFreedomPreference || input.yueMelodyFreedom || 'medium';
       $('#yue-bed').hidden = !$('#yue-use-chords').checked;
-      for (const [id] of roles) $('#yue-bed-' + id).value = 'custom';
+      for (const loop of loops.values()) if (loop.preset !== 'follow') loop.preset = 'custom';
+      paintLoops(true);
       simpleDirty = true;
     },
     /** Extra fields for /api/generate when YuE2 is the model. */
