@@ -1138,12 +1138,20 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       `Chords ready: ${clock(bed.seconds)} long, the same plan for all variants. You can create the song.`
     );
   }
+  // Rules: the button builds the plan from the loops and shows it in «Advanced» below; the answer is also written next to the button, where it was pressed.
   $('#yue-bed-write').addEventListener('click', () => {
+    const out = $('#yue-bed-status');
+    out.classList.remove('error');
     try {
       prepareBed();
       $('#yue-advanced').open = true;
       repaint();
+      out.textContent =
+        'Plan written from your loops. It is shown below in «Advanced»: press «Listen to the plan» to hear it.';
+      $('#yue-advanced').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
+      out.textContent = error.message;
+      out.classList.add('error');
       status(error.message, true);
     }
   });
