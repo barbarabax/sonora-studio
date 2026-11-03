@@ -9,7 +9,7 @@
 //          claude-sonnet-5-5 | anthropic | 2026-10-11 | s_20261011_yue2 | Created for YuE2 (plan, chord grid, ABC text, reuse of a finished song's plan); piano roll, playback, chord picker and genre progressions added after the first user test. 2026-10-12: structure, tempo, instrument and per-part ABC editing added.
 //          Codex | OpenAI | 2026-10-15 | Cover lyric blocks and estimated syllable counts beside vocal sections.
 //          Codex | OpenAI | 2026-10-15 | Space pauses and resumes the score while its vertical note-follow remains enabled.
-import { parsePlan, setChord, isChord, planSummary } from './abc-plan.mjs';
+import { parsePlan, setChord, isChord, planSummary, chordsOnly } from './abc-plan.mjs';
 import { parseScore, drawRoll, playScore, chordMidis } from './abc-play.mjs';
 import {
   QUALITIES,
@@ -1176,8 +1176,12 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       $('#yue-cover-fit-status').textContent = error.message;
     }
   });
-  const coverLabel = () =>
-    $('#yue-cover-chords').checked ? 'Extract melody and chords' : 'Extract the melody';
+  const COVER_PARTS = {
+    both: ['Extract melody and chords', 'melody and chords'],
+    melody: ['Extract the melody', 'the melody'],
+    chords: ['Extract the chords', 'the chords'],
+  };
+  const coverLabel = () => COVER_PARTS[$('#yue-cover-parts').value][0];
   /** The choice in the mode switch: YuE2 decides, I choose the chords, or a melody (cover). */
   const choiceNow = () => (mode === 'cover' ? 'cover' : $('#yue-use-chords').checked ? 'chords' : 'new');
   function paintCover() {
@@ -1243,7 +1247,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
     paintCover();
   }
   for (const b of $$('[data-yue-mode]')) b.addEventListener('click', () => setMode(b.dataset.yueMode));
-  $('#yue-cover-chords').addEventListener('change', paintCover);
+  $('#yue-cover-parts').addEventListener('change', paintCover);
   $('#yue-cover-change').addEventListener('click', () => {
     cover = null;
     $('#yue-cover-file').value = '';
@@ -1254,7 +1258,8 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
     const file = $('#yue-cover-file').files[0];
     const out = $('#yue-cover-status');
     const button = $('#yue-cover-run');
-    const chords = $('#yue-cover-chords').checked;
+    const parts = $('#yue-cover-parts').value;
+    const chords = parts !== 'melody';
     out.classList.remove('error');
     if (!file && !cover) {
       out.textContent = 'Choose the audio file of the song first.';
@@ -1262,7 +1267,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       return;
     }
     button.disabled = true;
-    out.textContent = `${cover ? 'Extracting' : 'Loading the song and extracting'} ${chords ? 'melody and chords' : 'the melody'}… this can take a few minutes (longer the first time).`;
+    out.textContent = `${cover ? 'Extracting' : 'Loading the song and extracting'} ${COVER_PARTS[parts][1]}… this can take a few minutes (longer the first time).`;
     try {
       const headers = { 'X-Sonora': '1', 'x-yue-host': host(), 'x-cover-chords': chords ? '1' : '0' };
       const response = await fetch('/api/yue2/cover/melody', {
@@ -1286,14 +1291,17 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
         ...(result.trimmedTo ? { trimmed: true } : {}),
       };
       // Rules: with chords the plan is sung with cot=full (melody and chords), without them with cot=melody.
+      // Rules: chords only keeps the chords and rests: YuE2 writes the melody over them (cot=full), as in «I choose the chords».
       $('#yue-cot').value = result.chords ? 'full' : 'melody';
-      setPlan(result.abc, null);
+      setPlan(parts === 'chords' ? chordsOnly(result.abc) : result.abc, null);
       if (!$('#title').value.trim()) applyInput({ title: `${result.title} · cover` });
-      out.textContent = `${result.chords ? 'Melody and chords ready' : 'Melody ready'}${result.trimmedTo ? ` (the song is long: I used the first ${clock(result.trimmedTo)}, and the cover will fade out at the end)` : ''}. Now write the lyrics and the new style below, then check the melody at the bottom.`;
+      out.textContent = `${parts === 'chords' ? 'Chords ready' : result.chords ? 'Melody and chords ready' : 'Melody ready'}${result.trimmedTo ? ` (the song is long: I used the first ${clock(result.trimmedTo)}, and the cover will fade out at the end)` : ''}. Now write the lyrics and the new style below, then check the melody at the bottom.`;
       status(
-        result.chords
-          ? 'Melody and chords extracted. Listen to them with «Listen to the plan», fix the chords in the boxes and the notes in the bar editor before creating the song.'
-          : 'Melody extracted. Listen to it with «Listen to the plan» and fix the wrong notes before creating the song.'
+        parts === 'chords'
+          ? 'Chords extracted. YuE2 will write a new melody over them: listen with «Listen to the plan», fix the chords in the boxes, then create the song.'
+          : result.chords
+            ? 'Melody and chords extracted. Listen to them with «Listen to the plan», fix the chords in the boxes and the notes in the bar editor before creating the song.'
+            : 'Melody extracted. Listen to it with «Listen to the plan» and fix the wrong notes before creating the song.'
       );
     } catch (error) {
       out.textContent = error.message;

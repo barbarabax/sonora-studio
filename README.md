@@ -110,7 +110,7 @@ YuE2 works in two steps. It first writes a **plan**: the sung melody and the cho
 |---|---|
 | **Decide YuE2** | Style, lyrics and how freely the melody may vary. YuE2 invents melody and chords. |
 | **I choose the chords** | The chord loops for verses, choruses and bridge, the key, tempo and meter, and the **song length** (Auto from the sung lines, or a target such as 3:00). Every variant uses the same plan. |
-| **Use a melody** | Start from a song you upload (Sonora extracts its melody and chords) and let YuE2 sing it again in a new style. Use only audio you have the rights to. |
+| **Reference** | Start from a song you upload (Sonora extracts its melody and chords) and let YuE2 sing it again in a new style. Use only audio you have the rights to. |
 
 In **Advanced** you can import a MIDI file as the plan, listen to the plan, change single notes and chords, shorten parts, move the key, and download the plan as MIDI. **Yue2 adapters (LoRA)** lists ready-made YuE2 LoRA adapters you can install and combine (up to four); see the licence note below.
 
@@ -133,7 +133,7 @@ On your own PC a song takes about as long as it lasts, and the graphics card sta
 2. **Download the model files.** The easy way is the **YuE2 · This PC** card in Provider settings: choose a folder, **Check model files**, **Download missing files**. Sonora downloads exactly these files from the Hugging Face repository [Serveurperso/YuE2-GGUF](https://huggingface.co/Serveurperso/YuE2-GGUF) into one folder:
    - `YuE2-3B-Q8_0.gguf` (3.8 GB): the song model
    - `YuE2-Vae-F32.gguf` (0.5 GB): the audio decoder
-   - optional, only for the *Use a melody* mode: `SheetSage2-Q8_0.gguf` (0.1 GB) and `MERT-v2-FullSong-Q8_0.gguf` (0.9 GB)
+   - optional, only for the *Reference* mode: `SheetSage2-Q8_0.gguf` (0.1 GB) and `MERT-v2-FullSong-Q8_0.gguf` (0.9 GB)
 3. Start Sonora and open **Provider settings → YuE2 · This PC (yue2.cpp)**. Enter the full path of the engine program (`yue-server`), the song model and the audio decoder. The model paths are filled in for you after the download. Add the transcriber and the LoRA folder if you use them. Choose **Check and save**: Sonora checks that every file exists. The paths are stored in `data/providers.json`.
 4. **Restart Sonora.** The engine is started when Sonora starts.
 5. In **Create music** choose **YuE2-3B · melody and chords**. **Where to create it** shows **This PC**.

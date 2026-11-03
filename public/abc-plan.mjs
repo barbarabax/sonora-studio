@@ -134,3 +134,55 @@ export function planSummary(abc) {
     .filter(Boolean)
     .join(' · ');
 }
+
+/**
+ * Keep only the chords of a plan: the singer's bars become the chords over rests and the instrument's bars whole-bar silences,
+ * the same shape as a chord bed. A bar with several chords shares its length between them when it divides evenly, otherwise
+ * it keeps its first chord. YuE2 then writes the melody over those chords.
+ */
+export function chordsOnly(abc) {
+  const text = String(abc || '')
+    .split(String.fromCharCode(13, 10))
+    .join(String.fromCharCode(10));
+  const plan = parsePlan(text);
+  const meter = /^(\d+)\/(\d+)$/.exec(plan.header.meter || '');
+  const unit = /^(\d+)\/(\d+)$/.exec(plan.header.unit || '');
+  if (!meter || !unit || !plan.singer)
+    throw new Error('This plan has no tempo and meter to read the chords from.');
+  const units = Math.round(((Number(meter[1]) / Number(meter[2])) * Number(unit[2])) / Number(unit[1]));
+  if (!Number.isInteger(units) || units < 1)
+    throw new Error('This plan has no tempo and meter to read the chords from.');
+  const out = [];
+  let inBody = false;
+  let voice = null;
+  for (const line of text.split('\n')) {
+    if (!inBody) {
+      out.push(line);
+      if (/^K:/.test(line)) inBody = true;
+      continue;
+    }
+    const voiceLine = /^V:\s*(\S+)/.exec(line);
+    if (voiceLine) voice = voiceLine[1];
+    if (voiceLine || /^%/.test(line) || !line.trim() || /^[A-Za-z]:/.test(line)) {
+      out.push(line);
+      continue;
+    }
+    const bars = line.split('|').filter(bar => bar.trim() !== '');
+    if (voice !== plan.singer) {
+      out.push(`Z${bars.length}|`);
+      continue;
+    }
+    out.push(
+      bars
+        .map(bar => {
+          const chords = [...bar.matchAll(/"([^"]*)"/g)].map(m => m[1]).filter(isChord);
+          if (!chords.length) return `z${units}`;
+          const share = units % chords.length === 0 ? units / chords.length : 0;
+          if (!share) return `"${chords[0]}"z${units}`;
+          return chords.map(chord => `"${chord}"z${share}`).join('');
+        })
+        .join('|') + '|'
+    );
+  }
+  return out.join('\n');
+}

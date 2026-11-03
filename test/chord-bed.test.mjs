@@ -138,3 +138,19 @@ test('a target length stretches the sung parts in 4-bar blocks and keeps parts w
     'a long verse is no longer cut to 16 bars'
   );
 });
+
+test('chordsOnly keeps every chord and bar of an extracted plan and empties the melody and the instrument', async () => {
+  const { chordsOnly } = await import('../public/abc-plan.mjs');
+  const { readFileSync } = await import('node:fs');
+  const abc = readFileSync(new URL('./fixtures/yue2-plan.abc', import.meta.url), 'utf8');
+  const kept = chordsOnly(abc);
+  const before = parsePlan(abc);
+  const after = parsePlan(kept);
+  assert.deepEqual(
+    after.slots.map(s => [s.section, s.bar, s.chord]),
+    before.slots.map(s => [s.section, s.bar, s.chord])
+  );
+  assert.doesNotMatch(kept, /[A-G],?\d/, 'no note is left');
+  assert.match(kept, /^Z\d+\|$/m);
+  assert.throws(() => chordsOnly('not a plan'), /tempo and meter/);
+});
