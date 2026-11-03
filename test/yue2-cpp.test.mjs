@@ -245,3 +245,42 @@ test('with the engine on another computer, its loaded LoRAs are read from /props
   assert.equal(cpp.remote, true);
   assert.deepEqual(await cpp.engineAdapters(), ['lora-a', 'lora-b']);
 });
+
+test('restart stops an engine started by hand (only the configured program), starts it again and reads its LoRAs', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-cpp-restart-'));
+  const files = Object.fromEntries(['engine', 'model', 'vae'].map(k => [k, path.join(dir, k)]));
+  for (const f of Object.values(files)) fs.writeFileSync(f, 'x');
+  let up = true; // an engine somebody started by hand
+  let adapters = ['old'];
+  const events = [];
+  const cpp = createCppYue2(
+    { ...files, port: 19997 },
+    {
+      dataDir: dir,
+      findEnginePid: async () => 4242,
+      fetchImpl: async address => {
+        if (!up) throw new Error('connection refused');
+        return address.endsWith('/props')
+          ? new Response(JSON.stringify({ adapters: adapters.map(name => ({ name })) }), { status: 200 })
+          : new Response('{}', { status: 200 });
+      },
+      spawnImpl: (command, args) => {
+        events.push([path.basename(command), args[0] === '/PID' ? args[1] : 'start']);
+        if (command === 'taskkill' || command === 'kill') up = false;
+        else {
+          up = true;
+          adapters = ['old', 'new'];
+        }
+        return { on() {}, unref() {}, pid: 777 };
+      },
+    }
+  );
+  try {
+    const result = await cpp.restart();
+    assert.deepEqual(result.adapters, ['old', 'new']);
+    if (process.platform === 'win32') assert.deepEqual(events[0], ['taskkill', '4242']);
+    assert.equal(events.at(-1)[1], 'start');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

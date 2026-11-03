@@ -73,6 +73,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
   let planned = null; // the lyrics the current plan was made for
   let mode = 'new'; // 'new' (YuE2 writes the plan) or 'cover' (the plan comes from an existing song)
   let cover = null; // { id, title, seconds, chords } of the original song kept on the server
+  let engineRestart = false; // only the Sonora that starts the engine itself offers the restart button
   let loraHosts = { local: false, runpod: false }; // where YuE2 LoRA can be used
   let loraEngineReady = true; // on RunPod: is yue2.cpp installed on the volume (from the last report)
   let loras = []; // the catalogue from /api/yue2/adapters
@@ -93,6 +94,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
     $('#yue-host-hint').hidden = host() !== 'local';
     // Rules: LoRA only exist for yue2.cpp on this PC; on RunPod the list is hidden and nothing chosen is sent.
     $('#yue-lora').hidden = !loraHosts[host()];
+    $('#yue-lora-restart').hidden = !engineRestart || host() !== 'local';
     $('#yue-melody-freedom').disabled = !melodySupported || host() !== 'local';
     $('#yue-freedom-hint').textContent =
       melodySupported && host() === 'local'
@@ -157,6 +159,23 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
         )
         .join('');
   }
+  $('#yue-engine-restart').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const out = $('#yue-engine-restart-status');
+    out.classList.remove('error');
+    button.disabled = true;
+    out.textContent = 'Restarting the engine… the model takes a moment to load.';
+    try {
+      const result = await api('/api/yue2/engine/restart', 'POST', {});
+      out.textContent = result.message;
+      await loadLoras();
+    } catch (error) {
+      out.textContent = error.message;
+      out.classList.add('error');
+    } finally {
+      button.disabled = false;
+    }
+  });
   $('#yue-lora').addEventListener('toggle', () => {
     if ($('#yue-lora').open) loadLoras();
   });
@@ -1463,6 +1482,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       melodySupported = !!config.yue2MelodyFreedom;
       hosts = { runpod: !!config.yue2Runpod, local: !!config.yue2Local };
       loraHosts = { local: !!config.yue2Lora, runpod: !!config.yue2LoraRunpod };
+      engineRestart = !!config.yue2EngineRestart;
       followSidebar(config.generationBackend);
       paintHost();
     },

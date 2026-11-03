@@ -11,7 +11,7 @@
 // Codex | openai | 2026-10-15 | Pass selected source codes to the continuation request.
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -48,7 +48,10 @@ export function parseMultipart(contentType, body) {
  * @param settings { engine, model, vae, transcriber?, adapters?, port?, device?, maxSeq?, mp3Bitrate? } as in config.yue2.cpp
  * @param options  { dataDir, fetchImpl?, spawnImpl?, encode? } — encode(args) runs ffmpeg (tests replace it)
  */
-export function createCppYue2(settings = {}, { dataDir, fetchImpl = fetch, spawnImpl = spawn, encode } = {}) {
+export function createCppYue2(
+  settings = {},
+  { dataDir, fetchImpl = fetch, spawnImpl = spawn, encode, findEnginePid } = {}
+) {
   // Rules: `remote: true` means yue-server runs on another computer and reaches this one through an SSH tunnel on `port`;
   // then no engine or model file is needed here and nothing is ever started or restarted by this app.
   const remote = settings.remote === true;
@@ -111,6 +114,41 @@ export function createCppYue2(settings = {}, { dataDir, fetchImpl = fetch, spawn
     }
     fs.rmSync(pidFile(), { force: true });
   }
+  /** pid of the yue-server that listens on our port when it was started outside this app; 0 when none or not the configured program. */
+  const enginePid =
+    findEnginePid ||
+    (() =>
+      new Promise(resolve => {
+        if (process.platform !== 'win32') return resolve(0);
+        const script = `$c = Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue; if ($p) { "$($p.Id)|$($p.Path)" } }`;
+        execFile(
+          'powershell',
+          ['-NoProfile', '-NonInteractive', '-Command', script],
+          { windowsHide: true, timeout: 15000 },
+          (error, stdout) => {
+            const [pid, exe] = String(stdout || '')
+              .trim()
+              .split('|');
+            const same =
+              exe &&
+              settings.engine &&
+              path.resolve(exe).toLowerCase() === path.resolve(settings.engine).toLowerCase();
+            resolve(!error && same && Number(pid) > 0 ? Number(pid) : 0);
+          }
+        );
+      }));
+  const killPid = pid => {
+    try {
+      if (process.platform === 'win32')
+        spawnImpl('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on?.(
+          'error',
+          () => {}
+        );
+      else process.kill(pid, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+  };
   /**
    * Start yue-server if it is not answering yet; it keeps running (detached) between songs and frees the GPU after each one.
    * Rules: after a LoRA was added or removed the engine is restarted, but only when none of our jobs is still running on it.
@@ -324,6 +362,32 @@ export function createCppYue2(settings = {}, { dataDir, fetchImpl = fetch, spawn
   return {
     configured,
     remote,
+    /**
+     * Stop the engine and start it again so it reads the LoRA folder now (also when it was started by hand).
+     * Rules: never while one of our songs is running on it; only the yue-server program that is configured is stopped.
+     */
+    async restart() {
+      if (remote) throw new Error('The engine runs on another computer: restart it there.');
+      if (!configured) throw new Error('YuE2 on the PC (yue2.cpp) is not configured.');
+      if (active.size) throw new Error('The engine is still creating a song: wait for it to finish.');
+      const down = async () => {
+        for (let i = 0; i < 20 && (await alive()); i++)
+          await new Promise(resolve => setTimeout(resolve, 500));
+        return !(await alive());
+      };
+      if (await alive()) {
+        stopEngine();
+        if (!(await down())) {
+          const pid = await enginePid();
+          if (pid) killPid(pid);
+          if (!(await down()))
+            throw new Error('I cannot stop the yue2.cpp engine: close yue-server.exe and try again.');
+        }
+      }
+      stale = false;
+      await ensureEngine();
+      return { adapters: (await this.engineAdapters()) ?? [] };
+    },
     /** The LoRA folder changed: restart the engine before the next request (when it is idle). */
     adaptersChanged() {
       if (!remote) stale = true;

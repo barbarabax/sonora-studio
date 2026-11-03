@@ -1712,6 +1712,7 @@ export function createStudio(
           yue2Local: yue2Local.configured,
           yue2MelodyFreedom: yue2Cpp.configured,
           yue2Lora: yue2Adapters.available || yue2Cpp.remote === true,
+          yue2EngineRestart: yue2Cpp.configured && !yue2Cpp.remote,
           yue2LoraRunpod: !!yue2Settings.endpointId,
           providers: {
             local: { comfyUrl: localComfyUrl, comfyRoot: localModelsRoot },
@@ -2236,6 +2237,19 @@ export function createStudio(
               ? await remoteList()
               : { available: yue2Adapters.available, adapters: yue2Adapters.list() }
         );
+        return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/yue2/engine/restart') {
+        await bodyOf(req);
+        if (db.jobs.some(j => j.backend === 'yue2' && j.remote?.engine === 'cpp' && !TERMINAL.has(j.status)))
+          throw new Error('A song is still being created on this PC: wait for it to finish.');
+        const { adapters } = await yue2Cpp.restart();
+        json(res, 200, {
+          adapters,
+          message: adapters.length
+            ? `Engine restarted. LoRAs loaded: ${adapters.join(', ')}.`
+            : 'Engine restarted. No LoRA is loaded.',
+        });
         return;
       }
       const adapterMatch = /^\/api\/yue2\/adapters\/([a-z0-9-]{1,64})$/.exec(url.pathname);
