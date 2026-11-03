@@ -44,7 +44,7 @@ export function exportWav(source, target) {
       }
     };
     child.stderr.resume();
-    child.once('error', () => finish(new Error('FFmpeg is unavailable for WAV downloads.')));
+    child.once('error', () => finish(new Error('FFmpeg not available for the WAV download.')));
     child.once('close', code => finish(code === 0 ? null : new Error('WAV conversion failed.')));
   });
 }

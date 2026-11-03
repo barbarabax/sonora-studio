@@ -14,15 +14,15 @@
 //
 //
 //
-// 
 //
-// 
 //
-// 
 //
-// 
 //
-// 
+//
+//
+//
+//
+//
 //
 // exports: createFileProtector
 // used_by: sonora-studio/prompt-ai.mjs

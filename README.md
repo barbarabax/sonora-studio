@@ -1,6 +1,6 @@
 # Sonora Studio
 
-Sonora Studio is a local-first music creation workspace built around ComfyUI and ACE-Step 1.5. It includes a music prompt composer, an audio library, editing and stem tools, an audio analysis and mastering workspace, and an optional RunPod LoRA trainer.
+Sonora Studio is a local-first music creation workspace. It makes songs with **ACE-Step 1.5** (through ComfyUI on your PC, RunPod or Vast.ai) and with **YuE2**, which writes the melody and chords first and then sings them. YuE2 can run **on your own PC with a light, quantised model (yue2.cpp, Q8_0), even on a 12 GB graphics card**. Sonora also includes a music prompt composer, an audio library, editing, stem and mixer tools, an audio analysis and mastering workspace, and an optional RunPod LoRA trainer.
 
 ## Screenshots
 
@@ -43,7 +43,18 @@ Sonora never installs or edits ComfyUI, its custom nodes or its settings.
 
 New to ACE-Step 1.5? The project's own [tutorial and FAQ](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Tutorial.md) explains how the model works, how to write prompts and lyrics, and answers common questions.
 
-## Quick start (Windows, NVIDIA GPU)
+## Easiest start: the portable Windows download
+
+1. Download `Sonora-Studio-<version>-win-x64.zip` from the [Releases](https://github.com/barbarabax/sonora-studio/releases) page and extract it anywhere (a short path such as `C:Sonora` is best). Node.js is included; you do not install it.
+2. Double-click **`Sonora.exe`**. Your browser opens Sonora Studio. Windows may warn that the program is from an unknown publisher because it is not signed: choose **More info**, then **Run anyway**.
+3. Open **Provider settings**. The **Setup check** at the top lists what your computer has (Node.js, FFmpeg, NVIDIA card, ComfyUI, models) and what is still missing, with one hint for each.
+4. For **YuE2 on your own PC**, use the **YuE2 · This PC** card: choose a folder and **Download missing files** (Sonora downloads the model files from Hugging Face and verifies their checksums), enter the engine program, then **Check and save** and restart. For **ACE-Step**, follow steps 5 and 6 of the guide below.
+
+`Stop Sonora.cmd` stops the app. Your songs and settings stay in the `data` folder next to `Sonora.exe`: copy it to keep them when you update. If Sonora does not start, double-click `Sonora (show errors).cmd`. The download is built from this repository by a GitHub workflow (`.github/workflows/release.yml`), and its SHA-256 is published next to it.
+
+Sonora never installs ComfyUI, FFmpeg, the NVIDIA driver or the yue2.cpp engine for you; the Setup check tells you what to do for each.
+
+## Quick start (Windows, NVIDIA GPU, from the source code)
 
 This is the full path for running everything on your own computer. Do the steps in order. Linux works the same way with `npm start`.
 
@@ -90,6 +101,89 @@ Open **Create music**, write a style and lyrics, and press Create.
 Sonora writes only the model weights into `ComfyUI/models/diffusion_models`, `models/text_encoders`, and `models/vae`. It does not install or edit ComfyUI, custom nodes, or settings. If ComfyUI still reports missing files after the download, restart ComfyUI yourself. The supported ACE-Step 1.5 XL Turbo files come from the [official Comfy-Org Hugging Face repository](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files); its model card lists Apache-2.0. Sonora does not bundle or redistribute those large model files.
 
 Sonora listens on loopback only. It stores tracks, library metadata, prompt presets, provider settings, and encrypted provider credentials in `data/`. The folder is excluded from Git. Back it up separately if you want to keep generated audio and settings.
+
+## YuE2: songs with melody and chords, on your own PC
+
+YuE2 works in two steps. It first writes a **plan**: the sung melody and the chords, which you can see, play and change. Then it sings your lyrics over that plan. Choose **YuE2-3B · melody and chords** as the music model in **Create music**, then pick how the plan is made:
+
+| Mode | What you decide |
+|---|---|
+| **Decide YuE2** | Style, lyrics and how freely the melody may vary. YuE2 invents melody and chords. |
+| **I choose the chords** | The chord loops for verses, choruses and bridge, the key, tempo and meter, and the **song length** (Auto from the sung lines, or a target such as 3:00). Every variant uses the same plan. |
+| **Use a melody** | Start from a song you upload (Sonora extracts its melody and chords) and let YuE2 sing it again in a new style. Use only audio you have the rights to. |
+
+In **Advanced** you can import a MIDI file as the plan, listen to the plan, change single notes and chords, shorten parts, move the key, and download the plan as MIDI. **Yue2 adapters (LoRA)** lists ready-made YuE2 LoRA adapters you can install and combine (up to four); see the licence note below.
+
+The song is as long as its plan. In *I choose the chords* the length comes from the lyrics (2 bars per sung line) or from the target you type.
+
+### What you need on your own PC
+
+| | Needed |
+|---|---|
+| GPU | NVIDIA with **12 GB VRAM**. The quantised `Q8_0` model is the light one; it was tested on an **RTX 2060 12 GB** |
+| Free disk space | About **6.5 GB**: the engine (about 0.7 GB) and the model files (about 4.5 GB, plus 1 GB for covers) |
+| System | Windows 10 or 11, or Linux (on both you build or obtain the engine yourself, see below) |
+| Software | Node.js 22+, FFmpeg. No Python is needed to make songs |
+
+On your own PC a song takes about as long as it lasts, and the graphics card stays busy meanwhile. Not tested on cards with less than 12 GB.
+
+### Set it up
+
+1. **Get the engine.** Sonora runs `yue-server` from [yue2.cpp](https://github.com/timoncool/yue2.cpp) (a fork of [ServeurpersoCom/yue2.cpp](https://github.com/ServeurpersoCom/yue2.cpp)). yue2.cpp publishes **no prebuilt binaries**: build it from source (on Windows with NVIDIA, run `buildcuda.cmd`; this needs the Visual C++ Build Tools and the CUDA Toolkit), or use an engine build that comes with another project such as [YuE2-Studio](https://github.com/timoncool/YuE2-Studio) if its release includes one. Sonora was tested with yue2.cpp commit `c8516db`.
+2. **Download the model files.** The easy way is the **YuE2 · This PC** card in Provider settings: choose a folder, **Check model files**, **Download missing files**. Sonora downloads exactly these files from the Hugging Face repository [Serveurperso/YuE2-GGUF](https://huggingface.co/Serveurperso/YuE2-GGUF) into one folder:
+   - `YuE2-3B-Q8_0.gguf` (3.8 GB): the song model
+   - `YuE2-Vae-F32.gguf` (0.5 GB): the audio decoder
+   - optional, only for the *Use a melody* mode: `SheetSage2-Q8_0.gguf` (0.1 GB) and `MERT-v2-FullSong-Q8_0.gguf` (0.9 GB)
+3. Start Sonora and open **Provider settings → YuE2 · This PC (yue2.cpp)**. Enter the full path of the engine program (`yue-server`), the song model and the audio decoder. The model paths are filled in for you after the download. Add the transcriber and the LoRA folder if you use them. Choose **Check and save**: Sonora checks that every file exists. The paths are stored in `data/providers.json`.
+4. **Restart Sonora.** The engine is started when Sonora starts.
+5. In **Create music** choose **YuE2-3B · melody and chords**. **Where to create it** shows **This PC**.
+
+If you prefer a file, put the same paths in `config.json`:
+
+```json
+{
+  "yue2": {
+    "cpp": {
+      "engine": "C:\\yue2-cpp\\engine\\yue-server.exe",
+      "model": "C:\\yue2-cpp\\models\\YuE2-3B-Q8_0.gguf",
+      "vae": "C:\\yue2-cpp\\models\\YuE2-Vae-F32.gguf",
+      "transcriber": "C:\\yue2-cpp\\models\\SheetSage2-Q8_0.gguf",
+      "adapters": "C:\\yue2-cpp\\adapters"
+    }
+  }
+}
+```
+
+`transcriber` and `adapters` are optional. The engine listens on `127.0.0.1` only, and finished songs are copied into your library with a checksum.
+
+### YuE2 engine on another computer (for example Sonora on a server, engine on your home PC)
+
+If Sonora runs on a server (a VPS) but your graphics card is at home, the engine can stay on your PC and be reached through an SSH tunnel. Nothing is exposed to the internet: the engine listens on `127.0.0.1` on your PC, and the tunnel makes it appear as `127.0.0.1` on the server.
+
+1. **On your PC**, start the engine yourself (Sonora does not start it for you in this mode):
+
+   ```sh
+   yue-server --model YuE2-3B-Q8_0.gguf --vae YuE2-Vae-F32.gguf --host 127.0.0.1 --port 18087
+   ```
+
+2. **On your PC**, open the tunnel and keep it open (an SSH key is recommended; a scheduled task or `autossh` can keep it up):
+
+   ```sh
+   ssh -N -R 18087:127.0.0.1:18087 -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes <user>@<server>
+   ```
+
+3. **In Sonora on the server**, open **Provider settings → YuE2 · This PC**, tick **The engine runs on another computer**, keep the port (18087) and choose **Check and save**, then restart Sonora. In `config.json` the same is `"yue2": { "cpp": { "remote": true, "port": 18087 } }`.
+4. In **Create music** choose YuE2 and **This PC**. The **Setup check** shows whether the tunnel answers.
+
+Good to know: the PC, the engine and the tunnel must all be running; a song takes about as long as it lasts, so the tunnel must stay up that long, and a song interrupted by a broken tunnel is not resent. LoRA adapters are not managed from the server in this mode: install them on the PC (`--adapters`) and start the engine with them.
+
+### YuE2 on RunPod (optional, advanced)
+
+You can also run YuE2 on a RunPod serverless endpoint of your own: enter its ID in the same **YuE2** card (the RunPod API key is the one from the RunPod card). The worker is `integrations/runpod/yue2_worker.py`, with `yue2_boot.sh` and `yue2_cpp_build.sh` to prepare the volume. As for ACE-Step, no ready-made container image is published and RunPod bills your own account.
+
+### Licences and credits for YuE2
+
+YuE2, its GGUF files and the LoRA adapters are **not part of this repository**: you download them from their authors. The adapter catalogue (`yue2-adapters.json`) lists each adapter's author and page. The adapter weights derive from YuE2-3B (CC BY-NC 4.0): check each author's page and the YuE2 licence before any commercial use.
 
 ## Choose a generation provider
 
@@ -149,7 +243,7 @@ The key is encrypted on this computer and is never returned to the browser. Requ
 
 ## Optional configuration
 
-The application starts with built-in ACE-Step defaults. Copy `config.example.json` to `config.json` only if you need to change local model filenames or the listening port. `config.json` is ignored by Git. API keys should be entered in the app's provider settings, not in this file.
+The application starts with built-in ACE-Step defaults. YuE2 settings are entered in **Provider settings** (see above); a `yue2` block in `config.json` works too. Copy `config.example.json` to `config.json` only if you need to change local model filenames or the listening port. `config.json` is ignored by Git. API keys should be entered in the app's provider settings, not in this file.
 
 `SONORA_DATA_DIR` selects the private data folder. `SONORA_SECRET_FILE` selects the local encryption-key file. RunPod's optional expiry watchdog can be scheduled with the example systemd service and timer in `integrations/runpod/`; it reads the same encrypted credential store used by the app.
 

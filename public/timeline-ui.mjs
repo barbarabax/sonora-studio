@@ -1,14 +1,8 @@
 // @codedna
 // description: Multitrack timeline for the stem mixer: waveform clips, split, drag with beat/bar snapping, delete and undo.
 //
-// 
-//
-// 
-//
-// 
-//
 // exports: createTimeline
-// used_by: sonora-studio/public/mixer-ui.mjs
+// used_by: public/mixer-ui.mjs
 // rules:   Never mutate audio; clips are plain {id, at, from, len} in seconds owned by mixer-ui.mjs (this module edits them through history-aware callbacks); no inline styles in markup (CSSOM only, CSP style-src 'self').
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_timeline | Suno-Studio-like lanes: clips with waveform, snap to a fitted constant-tempo grid (beat/bar), split at playhead, undo.
 import { normalizeFx, fxActive } from './fx.mjs';
@@ -26,6 +20,7 @@ const uid = () => Math.random().toString(36).slice(2, 9);
  * @param {(key:string) => AudioBuffer|undefined} o.buffer
  * @param {() => number} o.total         song length in seconds
  * @param {() => ({period:number,t0:number}|null)} o.grid
+ * @param {() => string} [o.gridMessage]  label shown when a beat grid is unavailable
  * @param {() => number} o.beatsPerBar
  * @param {(t:number) => void} o.seek
  * @param {() => void} o.changed         called after every committed edit
@@ -63,7 +58,7 @@ export function createTimeline(o) {
   };
   const peaksCache = new WeakMap();
   const el = {};
-  o.root.innerHTML = `<div class="tl-toolbar"><span class="tl-modes" role="group" aria-label="Tool"><button type="button" class="pill-button selected" data-tl="mode-move" title="Drag clips to move them">✋ Move</button><button type="button" class="pill-button" data-tl="mode-select" title="Drag across the timeline to select a section on one or more tracks (Shift also works)">▭ Select</button></span><button type="button" class="pill-button" data-tl="split" title="Split the selected clips at the playhead · S">✂ Split here</button><button type="button" class="pill-button" data-tl="delete" title="Delete the selected clip or track section · Delete">Delete</button><button type="button" class="pill-button" data-tl="copy" title="Copy the selected clip · Ctrl+C">Copy</button><button type="button" class="pill-button" data-tl="paste" title="Paste at the playhead on the selected track · Ctrl+V">Paste</button><button type="button" class="pill-button" data-tl="addlane" title="Add an empty track to paste or drop clips onto">＋ New track</button><button type="button" class="pill-button" data-tl="undo" title="Undo the last change · Ctrl+Z">↶ Undo</button><label>Snap <select data-tl="snap"><option value="bar">Bar</option><option value="beat">Beat</option><option value="fine">Fine (follows zoom)</option><option value="off">Off</option></select></label><label>Downbeat <select data-tl="downbeat"></select></label><span class="tl-bpm" data-tl="bpm"></span><span class="tl-sel-info" data-tl="selinfo"></span><button type="button" class="text-button" data-tl="clearsel" hidden>Deselect</button><button type="button" class="text-button" data-tl="half" title="Use if the grid is twice or half the correct tempo">×2 / ÷2</button><label>Fade in <input type="number" data-tl="fadein" min="0" max="30" step="0.1" value="0" title="Fade-in time for the selected clip or track"></label><label>out <input type="number" data-tl="fadeout" min="0" max="30" step="0.1" value="0" title="Fade-out time"></label><label>Zoom <input type="range" data-tl="zoom" min="4" max="120" value="20" aria-label="Timeline zoom"></label></div><div class="tl-body"><div class="tl-labels"></div><div class="tl-scroll" tabindex="0"><div class="tl-inner"><div class="tl-ruler"></div><div class="tl-lanes"></div><div class="tl-selection" hidden></div><div class="tl-playhead"></div></div></div></div><p class="field-hint">Drag a clip to move it; it snaps to bars. Click the ruler to set the playhead and use Split here. Drag across the ruler to select a section and generate an instrument only there.</p>`;
+  o.root.innerHTML = `<div class="tl-toolbar"><span class="tl-modes" role="group" aria-label="Tool"><button type="button" class="pill-button selected" data-tl="mode-move" title="Drag the clips to move them">✋ Move</button><button type="button" class="pill-button" data-tl="mode-select" title="Drag on the timeline to select a part of one or more tracks (it also works while holding Shift)">▭ Select</button></span><button type="button" class="pill-button" data-tl="split" title="Cut the selected clip (or all) at the listening point · S key">✂ Cut here</button><button type="button" class="pill-button" data-tl="delete" title="Delete the selected clip, or the selected part of the tracks · Del key">Delete</button><button type="button" class="pill-button" data-tl="copy" title="Copy the selected clip · Ctrl+C">Copy</button><button type="button" class="pill-button" data-tl="paste" title="Paste at the listening point, onto the chosen track · Ctrl+V">Paste</button><button type="button" class="pill-button" data-tl="addlane" title="Adds an empty track where you can paste or drag clips">＋ New track</button><button type="button" class="pill-button" data-tl="undo" title="Undo the last change · Ctrl+Z">↶ Undo</button><label>Snap <select data-tl="snap"><option value="bar">Bar</option><option value="beat">Beat</option><option value="fine">Fine (follows the zoom)</option><option value="off">Free</option></select></label><label>Downbeat <select data-tl="downbeat"></select></label><span class="tl-bpm" data-tl="bpm"></span><span class="tl-sel-info" data-tl="selinfo"></span><button type="button" class="text-button" data-tl="clearsel" hidden>Deselect</button><button type="button" class="text-button" data-tl="half" title="If the grid is double or half the right tempo">×2 / ÷2</button><label>Fade in <input type="number" data-tl="fadein" min="0" max="30" step="0.1" value="0" title="Seconds of fade in for the selected clip (or the chosen track)"></label><label>out <input type="number" data-tl="fadeout" min="0" max="30" step="0.1" value="0" title="Seconds of fade out"></label><label>Zoom <input type="range" data-tl="zoom" min="4" max="120" value="20" aria-label="Timeline zoom"></label></div><div class="tl-body"><div class="tl-labels"></div><div class="tl-scroll" tabindex="0"><div class="tl-inner"><div class="tl-ruler"></div><div class="tl-lanes"></div><div class="tl-selection" hidden></div><div class="tl-playhead"></div></div></div></div><p class="field-hint">Drag a clip to move it: it snaps to the bars. Click on the ruler to set the listening point and cut with «Cut here». Drag on the ruler to highlight a part (for example the chorus) and generate an instrument only there.</p>`;
   const fxPanel = document.createElement('div');
   fxPanel.className = 'tl-fx';
   fxPanel.hidden = true;
@@ -78,23 +73,23 @@ export function createTimeline(o) {
     {
       title: 'Equalizer',
       fields: [
-        range('low', 'Bass', -12, 12, 1, db),
-        range('mid', 'Mids', -12, 12, 1, db),
-        range('high', 'Treble', -12, 12, 1, db),
+        range('low', 'Low', -12, 12, 1, db),
+        range('mid', 'Mid', -12, 12, 1, db),
+        range('high', 'High', -12, 12, 1, db),
       ],
     },
     {
       title: 'Filters',
       fields: [
-        range('hp', 'Low cut', 20, 1000, 10, v => (v <= 20 ? 'off' : hz(v))),
-        range('lp', 'High cut', 1000, 20000, 100, v => (v >= 20000 ? 'off' : hz(v))),
+        range('hp', 'Cut the lows', 20, 1000, 10, v => (v <= 20 ? 'spento' : hz(v))),
+        range('lp', 'Cut the highs', 1000, 20000, 100, v => (v >= 20000 ? 'spento' : hz(v))),
       ],
     },
     {
       title: 'Compressor',
       block: 'comp',
       meter: true,
-      hint: 'Reduces the difference between loud and quiet sounds. Lower threshold and higher ratio mean more compression.',
+      hint: 'Reduces the difference between loud and quiet sounds. Lower threshold and higher ratio = more compression.',
       fields: [
         range('comp.thr', 'Threshold', -60, 0, 1, db),
         range('comp.ratio', 'Ratio', 1, 20, 0.5, v => `${v}:1`),
@@ -105,9 +100,9 @@ export function createTimeline(o) {
           ['peak', 'Peak (fast)'],
           ['rms', 'RMS (natural)'],
         ]),
-        range('comp.schp', 'Low-frequency detection filter', 20, 300, 5, hz),
-        { p: 'comp.auto', label: 'Automatic makeup gain', type: 'check' },
-        range('comp.makeup', 'Manual makeup gain', -12, 24, 0.5, db),
+        range('comp.schp', 'Ignore the lows in detection', 20, 300, 5, hz),
+        { p: 'comp.auto', label: 'Automatic level make-up', type: 'check' },
+        range('comp.makeup', 'Manual make-up', -12, 24, 0.5, db),
         range('comp.mix', 'Mix (parallel compression)', 0, 1, 0.05, pct),
       ],
     },
@@ -121,17 +116,17 @@ export function createTimeline(o) {
           ['fuzz', 'Fuzz'],
         ]),
         range('dist.drive', 'Drive', 0, 40, 1, db),
-        range('dist.tone', 'Tone (taglio acuti)', 500, 16000, 100, hz),
-        range('dist.level', 'Level out', -24, 12, 1, db),
+        range('dist.tone', 'Tone (high cut)', 500, 16000, 100, hz),
+        range('dist.level', 'Output level', -24, 12, 1, db),
         range('dist.mix', 'Mix', 0, 1, 0.05, pct),
       ],
     },
     {
       title: 'Wah',
       block: 'wah',
-      hint: 'A filter that moves up and down at the selected rate.',
+      hint: 'A filter that sweeps up and down by itself, at the speed you choose.',
       fields: [
-        range('wah.rate', 'Rate', 0.1, 8, 0.1, v => `${Number(v).toFixed(1)} Hz`),
+        range('wah.rate', 'Speed', 0.1, 8, 0.1, v => `${Number(v).toFixed(1)} Hz`),
         range('wah.lo', 'Minimum frequency', 200, 1000, 10, hz),
         range('wah.hi', 'Maximum frequency', 800, 4000, 50, hz),
         range('wah.q', 'Resonance', 1, 12, 0.5, v => Number(v).toFixed(1)),
@@ -139,14 +134,14 @@ export function createTimeline(o) {
       ],
     },
     {
-      title: 'Envelope (follower filter)',
+      title: 'Envelope (following filter)',
       block: 'env',
-      hint: 'The filter opens as you play louder, like an auto-wah.',
+      hint: 'The filter opens the louder you play, like an auto-wah.',
       fields: [
         range('env.sens', 'Sensitivity', 0, 1, 0.05, pct),
         choice('env.dir', 'Direction', [
-          ['up', 'Opens with volume'],
-          ['down', 'Closes with volume'],
+          ['up', 'Opens with the volume'],
+          ['down', 'Closes with the volume'],
         ]),
         range('env.lo', 'Minimum frequency', 100, 1000, 10, hz),
         range('env.hi', 'Maximum frequency', 500, 6000, 50, hz),
@@ -160,22 +155,22 @@ export function createTimeline(o) {
       title: 'Chorus',
       block: 'chorus',
       fields: [
-        range('chorus.rate', 'Rate', 0.05, 5, 0.05, v => `${Number(v).toFixed(2)} Hz`),
+        range('chorus.rate', 'Speed', 0.05, 5, 0.05, v => `${Number(v).toFixed(2)} Hz`),
         range('chorus.depth', 'Depth', 0, 8, 0.1, ms),
         range('chorus.delay', 'Base delay', 5, 30, 0.5, ms),
         range('chorus.mix', 'Mix', 0, 1, 0.05, pct),
       ],
     },
     {
-      title: 'Delay (repeating echo)',
+      title: 'Delay (echo with repeats)',
       block: 'delay',
-      hint: 'Repeats that fade over time. “Sync to track” aligns them to the bars.',
+      hint: 'Repeats of the sound that fade out slowly. «In song tempo» aligns them to the bars.',
       fields: [
         choice('delay.mode', 'Tempo', [
-          ['sync', 'Sync to track'],
-          ['free', 'Off (milliseconds)'],
+          ['sync', 'In song tempo'],
+          ['free', 'Free (milliseconds)'],
         ]),
-        choice('delay.note', 'Note value (sync)', [
+        choice('delay.note', 'Note value (in tempo)', [
           ['1/2', 'Half (1/2)'],
           ['1/4', 'Quarter (1/4)'],
           ['1/4.', 'Dotted quarter'],
@@ -189,11 +184,11 @@ export function createTimeline(o) {
         ]),
         range('delay.ms', 'Free time', 20, 1500, 5, ms),
         range('delay.fb', 'Repeats (feedback)', 0, 0.92, 0.02, pct),
-        range('delay.tone', 'Darken repeats (high cut)', 500, 16000, 100, hz),
-        range('delay.lowcut', 'Thin repeats (low cut)', 20, 1000, 10, hz),
+        range('delay.tone', 'Repeats get darker (high cut)', 500, 16000, 100, hz),
+        range('delay.lowcut', 'Repeats get thinner (low cut)', 20, 1000, 10, hz),
         {
           p: 'delay.pingpong',
-          label: 'Ping-pong (repeats move left and right)',
+          label: 'Ping-pong (repeats bounce right to left)',
           type: 'check',
         },
         range('delay.mix', 'Repeat level', 0, 1, 0.05, pct),
@@ -203,7 +198,7 @@ export function createTimeline(o) {
       title: 'Flanger',
       block: 'flanger',
       fields: [
-        range('flanger.rate', 'Rate', 0.05, 5, 0.05, v => `${Number(v).toFixed(2)} Hz`),
+        range('flanger.rate', 'Speed', 0.05, 5, 0.05, v => `${Number(v).toFixed(2)} Hz`),
         range('flanger.depth', 'Depth', 0, 6, 0.1, ms),
         range('flanger.delay', 'Base delay', 0.3, 10, 0.1, ms),
         range('flanger.fb', 'Feedback', -0.95, 0.95, 0.05, pct),
@@ -211,34 +206,32 @@ export function createTimeline(o) {
       ],
     },
     {
-      title: 'Allineamento nel tempo',
-      hint: 'Shift this track by a few milliseconds without moving its clips. Use it to align a recording to the beat.',
-      fields: [range('shift', 'Shift', -300, 300, 1, v => `${v > 0 ? '+' : ''}${v} ms`)],
+      title: 'Time alignment',
+      hint: 'Shifts all the audio of this track by a few milliseconds, without touching the clips. Useful to put a recording in time.',
+      fields: [range('shift', 'Offset', -300, 300, 1, v => `${v > 0 ? '+' : ''}${v} ms`)],
     },
     {
       title: 'Character',
       fields: [
         range('sat', 'Saturation', 0, 1, 0.05, pct),
-        range('width', 'Stereo width', 0, 2, 0.05, v =>
-          v === 1 ? 'normal' : v === 0 ? 'mono' : pct(v)
-        ),
+        range('width', 'Stereo width', 0, 2, 0.05, v => (v === 1 ? 'normale' : v === 0 ? 'mono' : pct(v))),
       ],
     },
     {
-      title: 'Eco semplice (3 ripetizioni)',
+      title: 'Simple echo (3 repeats)',
       fields: [
-        range('echo', 'Amount', 0, 1, 0.05, v => (v === 0 ? 'off' : pct(v))),
+        range('echo', 'Amount', 0, 1, 0.05, v => (v === 0 ? 'spento' : pct(v))),
         range('echoMs', 'Tempo', 50, 800, 10, ms),
       ],
     },
     {
-      title: 'Riverbero',
+      title: 'Reverb',
       fields: [
-        range('verb', 'Amount', 0, 1, 0.05, v => (v === 0 ? 'off' : pct(v))),
-        choice('room', 'Stanza', [
-          ['small', 'Piccola'],
-          ['medium', 'Midsa'],
-          ['large', 'Grande'],
+        range('verb', 'Amount', 0, 1, 0.05, v => (v === 0 ? 'spento' : pct(v))),
+        choice('room', 'Room', [
+          ['small', 'Small'],
+          ['medium', 'Medium'],
+          ['large', 'Large'],
         ]),
       ],
     },
@@ -258,15 +251,15 @@ export function createTimeline(o) {
       section =>
         `<details class="tl-fx-section" data-fx-section="${section.block || section.title}"><summary><span>${section.title}</span><i class="dot" hidden></i>${
           section.block
-            ? `<label class="fx-switch" title="Turn this effect on or off"><input type="checkbox" data-fx="${section.block}.on" aria-label="Enable ${section.title}"><b>On</b></label>`
+            ? `<label class="fx-switch" title="Turn this effect on or off"><input type="checkbox" data-fx="${section.block}.on" aria-label="Turn on ${section.title}"><b>Active</b></label>`
             : ''
         }</summary>${section.hint ? `<p class="field-hint">${section.hint}</p>` : ''}${
           section.meter
-            ? '<div class="tl-gr" title="Compressor gain reduction"><i></i><span>0 dB</span></div>'
+            ? '<div class="tl-gr" title="Level reduction applied by the compressor"><i></i><span>0 dB</span></div>'
             : ''
         }<div class="tl-fx-group">${section.fields.map(control).join('')}</div></details>`
     ).join('') +
-    `<button type="button" class="text-button" data-fx-reset>Reset this track’s effects</button>`;
+    `<button type="button" class="text-button" data-fx-reset>Reset the effects of this track</button>`;
   o.root.append(fxPanel);
   let fxKey = null,
     fxTimer = null;
@@ -282,7 +275,7 @@ export function createTimeline(o) {
   function paintFx() {
     if (!fxKey) return;
     const f = normalizeFx(o.getFx(fxKey));
-    fxPanel.querySelector('[data-fx-title]').textContent = 'Effetti · ' + o.label(fxKey);
+    fxPanel.querySelector('[data-fx-title]').textContent = 'Effects · ' + o.label(fxKey);
     for (const input of fxPanel.querySelectorAll('[data-fx]')) {
       const path = input.dataset.fx,
         value = getPath(f, path);
@@ -529,7 +522,7 @@ export function createTimeline(o) {
       el.selection.style.height = (sel.lanes ? count * LANE_H : RULER_H + keys.length * LANE_H) + 'px';
     }
     tool('selinfo').textContent = sel
-      ? `Selected section ${clock(sel.a)} – ${clock(sel.b)}${sel.lanes ? ` · ${sel.lanes.length} ${sel.lanes.length === 1 ? 'track' : 'tracks'}` : ''}`
+      ? `Highlighted part ${clock(sel.a)} – ${clock(sel.b)}${sel.lanes ? ` · ${sel.lanes.length} ${sel.lanes.length === 1 ? 'track' : 'tracks'}` : ''}`
       : '';
     tool('clearsel').hidden = !sel;
     const area = !!sel?.lanes;
@@ -564,7 +557,7 @@ export function createTimeline(o) {
         mute.type = 'button';
         mute.className = 'tl-mini' + (f.mute ? ' on' : '');
         mute.textContent = 'M';
-        mute.title = 'Muto';
+        mute.title = 'Mute';
         mute.dataset.tlMute = key;
         const solo = document.createElement('button');
         solo.type = 'button';
@@ -580,14 +573,13 @@ export function createTimeline(o) {
         gain.value = String(Math.round((f.gain ?? 1) * 100));
         gain.className = 'tl-gain tl-vol';
         gain.dataset.tlGain = key;
-        gain.title = `Level ${gain.value}% · double-click to reset to 100%`;
-        gain.setAttribute('aria-label', 'Level ' + o.label(key));
+        gain.title = `Volume ${gain.value}% · double-click to reset to 100%`;
+        gain.setAttribute('aria-label', 'Volume ' + o.label(key));
         const fxButton = document.createElement('button');
         fxButton.type = 'button';
         fxButton.className = 'tl-mini fxbtn' + (fxActive(o.getFx(key)) ? ' on' : '');
         fxButton.textContent = 'FX';
-        fxButton.title =
-          'Track effects: EQ, filters, saturation, stereo, echo and reverb';
+        fxButton.title = 'Effects of this track: equalizer, filters, saturation, stereo, echo, reverb';
         fxButton.dataset.fxKey = key;
         row.append(name, mute, solo, fxButton);
         const pan = document.createElement('input');
@@ -598,15 +590,15 @@ export function createTimeline(o) {
         pan.value = String(Math.round((f.pan ?? 0) * 100));
         pan.className = 'tl-gain tl-pan';
         pan.dataset.tlPan = key;
-        pan.title = 'Pan ' + panText(f.pan ?? 0) + ' · double-click to center';
-        pan.setAttribute('aria-label', 'Pan ' + o.label(key));
+        pan.title = 'Position ' + panText(f.pan ?? 0) + ' · double-click to centre';
+        pan.setAttribute('aria-label', 'Position ' + o.label(key));
         const url = o.downloadUrl?.(key);
         if (url) {
           const link = document.createElement('a');
           link.className = 'tl-mini link';
           link.href = url;
           link.textContent = '↓';
-          link.title = 'Download this stem as FLAC';
+          link.title = 'Download this instrument as FLAC';
           row.append(link);
         }
         if (o.removable?.(key)) {
@@ -655,7 +647,7 @@ export function createTimeline(o) {
             const handle = document.createElement('div');
             handle.className = 'tl-fh ' + side;
             handle.dataset.fade = side;
-            handle.title = 'Drag to adjust the fade ' + (side === 'in' ? 'in' : 'out');
+            handle.title = 'Drag for the fade ' + (side === 'in' ? 'in' : 'out');
             handle.style[side === 'in' ? 'left' : 'right'] = Math.min(clip.len, seconds) * state.pps + 'px';
             div.append(shade, handle);
           }
@@ -668,7 +660,14 @@ export function createTimeline(o) {
     paintRuler();
     paintGridLines();
     const g = grid();
-    tool('bpm').textContent = g ? `${Math.round(60 / g.period)} BPM` : 'Tempo in analisi…';
+    tool('bpm').textContent = g
+      ? `${Math.round(60 / g.period)} BPM`
+      : o.gridMessage?.() || 'Analysing tempo…';
+    tool('snap').disabled = !g;
+    tool('downbeat').disabled = !g;
+    tool('half').disabled = !g;
+    o.root.querySelector(':scope > .field-hint').textContent =
+      `Drag a clip to move it${g ? ': it snaps to the bars' : ' freely (tempo not available)'}. Click on the ruler to set the listening point and cut with «Cut here». Drag on the ruler to highlight a part (for example the chorus) and generate an instrument only there.`;
     tool('undo').disabled = !state.history.length;
     syncFades();
     tool('paste').disabled = !state.clipboard;
@@ -832,7 +831,7 @@ export function createTimeline(o) {
       added++;
     }
     if (!added) {
-      o.notify?.('There is no room to paste here. Choose a track higher up or add another track.');
+      o.notify?.('There is no room to paste here: choose a track higher up or add more.');
       return;
     }
     commit(before);
@@ -1155,13 +1154,13 @@ export function createTimeline(o) {
     const panKey = event.target.dataset?.tlPan;
     if (panKey) {
       const value = Number(event.target.value) / 100;
-      event.target.title = 'Pan ' + panText(value) + ' · double-click to center';
+      event.target.title = 'Position ' + panText(value) + ' · double-click to centre';
       o.setPan(panKey, value);
       return;
     }
     const gainKey = event.target.dataset?.tlGain;
     if (gainKey) {
-      event.target.title = `Level ${event.target.value}% · double-click to reset to 100%`;
+      event.target.title = `Volume ${event.target.value}% · double-click to reset to 100%`;
       o.setGain(gainKey, Number(event.target.value) / 100);
       return;
     }
@@ -1176,14 +1175,14 @@ export function createTimeline(o) {
     const panKey = event.target.dataset?.tlPan;
     if (panKey) {
       event.target.value = '0';
-      event.target.title = 'Centered · double-click to center';
+      event.target.title = 'Position centre · double-click to centre';
       o.setPan(panKey, 0);
       return;
     }
     const gainKey = event.target.dataset?.tlGain;
     if (!gainKey) return;
     event.target.value = '100';
-    event.target.title = 'Level 100% · double-click to reset to 100%';
+    event.target.title = 'Volume 100% · double-click to reset to 100%';
     o.setGain(gainKey, 1);
   });
   o.root.addEventListener('keydown', event => {

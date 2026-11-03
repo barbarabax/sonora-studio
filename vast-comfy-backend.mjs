@@ -1,10 +1,10 @@
 // @codedna
 // description: Connect to a user-owned, running Vast.ai ComfyUI instance through a local SSH tunnel.
-// 
 //
-// 
 //
-// 
+//
+//
+//
 //
 // exports: createVastComfyBackend
 // used_by: sonora-studio/server.mjs
@@ -75,7 +75,8 @@ export function createVastComfyBackend({
   let tunnelUrl = null;
 
   async function api(route, key = keyReader()) {
-    if (typeof key !== 'string' || key.length < 16) throw new Error('Add and verify your Vast API key first.');
+    if (typeof key !== 'string' || key.length < 16)
+      throw new Error('Add and verify your Vast API key first.');
     let response;
     try {
       response = await fetchImpl(`${API}${route}`, {
@@ -143,23 +144,34 @@ export function createVastComfyBackend({
       const id = validInstance(instanceId);
       const instances = await this.instances();
       const selected = instances.find(instance => instance.id === id);
-      if (!selected) throw new Error('That instance is not available in your Vast account. Refresh the list.');
-      if (selected.status !== 'running') throw new Error('Start the selected Vast instance in Vast.ai, then try again.');
+      if (!selected)
+        throw new Error('That instance is not available in your Vast account. Refresh the list.');
+      if (selected.status !== 'running')
+        throw new Error('Start the selected Vast instance in Vast.ai, then try again.');
       if (!selected.sshHost || !selected.sshPort)
         throw new Error('This instance has no SSH connection. Use a running SSH-enabled ComfyUI instance.');
       disconnect();
       const port = await portPicker();
       const args = [
         '-N',
-        '-o', 'BatchMode=yes',
-        '-o', 'ExitOnForwardFailure=yes',
-        '-o', 'StrictHostKeyChecking=accept-new',
-        '-o', `UserKnownHostsFile=${knownHosts}`,
-        '-o', 'ConnectTimeout=15',
-        '-o', 'ServerAliveInterval=20',
-        '-o', 'ServerAliveCountMax=3',
-        '-L', `127.0.0.1:${port}:127.0.0.1:8188`,
-        '-p', String(selected.sshPort),
+        '-o',
+        'BatchMode=yes',
+        '-o',
+        'ExitOnForwardFailure=yes',
+        '-o',
+        'StrictHostKeyChecking=accept-new',
+        '-o',
+        `UserKnownHostsFile=${knownHosts}`,
+        '-o',
+        'ConnectTimeout=15',
+        '-o',
+        'ServerAliveInterval=20',
+        '-o',
+        'ServerAliveCountMax=3',
+        '-L',
+        `127.0.0.1:${port}:127.0.0.1:8188`,
+        '-p',
+        String(selected.sshPort),
         `root@${selected.sshHost}`,
       ];
       childFailure = null;

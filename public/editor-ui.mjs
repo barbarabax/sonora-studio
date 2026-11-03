@@ -1,16 +1,10 @@
 // @codedna
 // description: Synchronized Web Audio stem mixer, waveform preview and replacement vocal controls.
-// 
-//
-// 
-//
-// 
-//
 // exports: initAudioEditor
-// used_by: sonora-studio/public/app.js
+// used_by: public/app.js
 // rules:   Escape stored titles; never autoplay or alter original audio.
 // agent:   Codex - 2026-10-04 - Personal two-track audio editor.
-// Claude - 2026-10-04 - Open exported mixes in Audio Lab.
+//          Claude - 2026-10-04 - Open exported mixes in Audio Lab.
 export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab }) {
   const panel = document.querySelector('#audio-editor');
   const esc = value =>
@@ -21,16 +15,16 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
   const time = s => `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, '0')}`;
   const url = (id, kind, voice = 'original', download = false, format = 'flac') =>
     `/api/editor/${id}/audio?kind=${kind}&id=${encodeURIComponent(voice)}${download ? '&download=1' : ''}${format ? `&format=${format}` : ''}`;
-  panel.innerHTML = `<div class="editor-heading"><div><div class="section-eyebrow">03 / REFINE</div><h1>Sound, your way.</h1><p>Separate vocals and instrumental. Listen, replace, and find your balance.</p></div><span class="editor-badge">EDITOR · 2 TRACKS</span></div>
-    <div class="editor-source"><label for="edit-track">Track to edit</label><div class="editor-source-row"><select id="edit-track"><option value="">Choose a track from your library or upload one</option></select><label class="pill-button subtle editor-upload-btn" for="edit-upload-song" style="cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap;">Upload an external track</label><input id="edit-upload-song" type="file" accept="audio/*" hidden><button id="edit-instrumental" class="pill-button subtle" type="button" hidden title="Use the track as it is for the base, without separating a voice">Already instrumental · skip separation</button><button id="edit-separate" class="pill-button">Separate vocals and instrumental</button><button id="edit-remove-session" class="text-button" hidden style="margin-left: 4px;">Remove</button></div><p id="edit-status" class="field-hint" role="status">Choose a completed track or upload an audio file to get started.</p><p id="edit-error" class="error" hidden></p></div>
-    <div id="edit-workspace" hidden><div class="editor-toolbar"><div class="editor-listen" role="group" aria-label="Editor monitoring"><button class="selected" data-listen="mix">Mix</button><button data-listen="base">Instrumental only</button><button data-listen="voice">Vocals only</button><button data-listen="original">Original</button></div><button id="edit-play" class="pill-button" disabled style="display: inline-flex; align-items: center; gap: 6px;">▶ Play mix</button></div>
-      <div class="editor-timeline"><span id="edit-elapsed">0:00</span><input id="edit-seek" type="range" min="0" max="1000" value="0" aria-label="Pan nell’editor"><span id="edit-total">0:00</span></div>
-      <div class="stem-track base-track"><div class="stem-head"><div><span class="stem-mark">B</span><strong>Instruments (original backing)</strong></div><div style="display:flex;gap:10px;align-items:center;"><a id="edit-base-download" class="text-button">Download FLAC</a><a id="edit-base-download-mp3" class="text-button">Download MP3</a></div></div><canvas id="edit-base-wave" aria-label="Backing waveform"></canvas><div class="stem-controls"><button id="edit-base-mute" class="pill-button subtle" aria-pressed="false">Mute instrumental</button><label for="edit-base-gain">Instrumental level</label><input id="edit-base-gain" type="range" min="0" max="2" step="0.01" value="1"><output id="edit-base-level">100%</output></div></div>
-      <div class="stem-track voice-track"><div class="stem-head"><div><span class="stem-mark">V</span><strong>Voice</strong></div><div style="display:flex;gap:10px;align-items:center;"><a id="edit-voice-download" class="text-button">Download FLAC</a><a id="edit-voice-download-mp3" class="text-button">Download MP3</a></div></div><label for="edit-voice-choice">Vocal track</label><select id="edit-voice-choice"><option value="original">Original separated vocals</option></select><canvas id="edit-voice-wave" aria-label="Vocal waveform"></canvas><div class="stem-controls"><button id="edit-voice-mute" class="pill-button subtle" aria-pressed="false">Mute vocals</button><label for="edit-voice-gain">Vocal level</label><input id="edit-voice-gain" type="range" min="0" max="2" step="0.01" value="1"><output id="edit-voice-level">100%</output></div><div class="voice-offset"><label for="edit-offset">Vocal alignment (ms)</label><input id="edit-offset" type="number" min="-10000" max="10000" step="10" value="0"><span class="field-hint">Positive = later · negative = earlier</span></div></div>
-      <div class="editor-export"><button id="edit-export" class="pill-button">Export mix as FLAC</button><button id="edit-reset" class="text-button">Reset adjustments</button><span id="edit-export-status" class="field-hint"></span></div><div id="edit-mixes" class="editor-mixes"></div>
-      <div class="editor-replace"><div class="section-eyebrow">A NEW PERFORMANCE</div><h2>Change the vocals. Keep the instrumental.</h2><p>Import recorded vocals or try ACE-Step on the instrumental. The mix always uses the separated backing saved here.</p><div class="editor-import"><label class="pill-button subtle" for="edit-import">Import audio vocals</label><input id="edit-import" type="file" accept="audio/*" hidden><span class="field-hint">WAV, FLAC, MP3 · up to 150 MB / 10 minutes</span></div>
-        <details id="edit-cover-options"><summary>Generate new vocals with ACE-Step · experimental</summary><label for="edit-cover-tags">Desired style and voice</label><textarea id="edit-cover-tags" rows="3" maxlength="3000" placeholder="warm female vocals, jazz, soft intimate singing…"></textarea><label for="edit-cover-lyrics">Lyrics to sing</label><textarea id="edit-cover-lyrics" rows="8" maxlength="12000"></textarea><p class="field-hint">ACE-Step creates a full cover using the track as a reference. Sonora extracts the vocals and mixes them over the preserved instrumental. Melody, pronunciation and timing may vary; vocal separation can leave artifacts.</p><button id="edit-cover" class="pill-button">Generate new vocals</button><p id="edit-cover-status" class="field-hint" role="status"></p></details>
-      </div><p class="editor-note">Originals stay in your library. The separated instrumental may contain vocal residue. The new mix keeps the original duration and trims vocals that extend past the ending. If the combined level is too high, export lowers the overall volume to prevent distortion.</p></div>`;
+  panel.innerHTML = `<div class="editor-heading"><div><div class="section-eyebrow">03 / REFINE</div><h1>The sound, your way.</h1><p>Split voice and backing. Listen, replace, find your balance.</p></div><span class="editor-badge">EDITOR · 2 TRACKS</span></div>
+    <div class="editor-source"><label for="edit-track">Song to edit</label><div class="editor-source-row"><select id="edit-track"><option value="">Choose a song from the library or upload one</option></select><label class="pill-button subtle editor-upload-btn" for="edit-upload-song" style="cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap;">Upload external song</label><input id="edit-upload-song" type="file" accept="audio/*" hidden><button id="edit-instrumental" class="pill-button subtle" type="button" hidden title="Use the song as it is as the backing, without separating the voice">It is already instrumental · skip the separation</button><button id="edit-separate" class="pill-button">Split voice and backing</button><button id="edit-remove-session" class="text-button" hidden style="margin-left: 4px;">Remove</button></div><p id="edit-status" class="field-hint" role="status">Choose a finished song or upload an audio file to start.</p><p id="edit-error" class="error" hidden></p></div>
+    <div id="edit-workspace" hidden><div class="editor-toolbar"><div class="editor-listen" role="group" aria-label="Editor listening"><button class="selected" data-listen="mix">Mix</button><button data-listen="base">Backing only</button><button data-listen="voice">Voice only</button><button data-listen="original">Original</button></div><button id="edit-play" class="pill-button" disabled style="display: inline-flex; align-items: center; gap: 6px;">▶ Play mix</button></div>
+      <div class="editor-timeline"><span id="edit-elapsed">0:00</span><input id="edit-seek" type="range" min="0" max="1000" value="0" aria-label="Position in the editor"><span id="edit-total">0:00</span></div>
+      <div class="stem-track base-track"><div class="stem-head"><div><span class="stem-mark">B</span><strong>Instruments (original backing)</strong></div><div style="display:flex;gap:10px;align-items:center;"><a id="edit-base-download" class="text-button">Download FLAC</a><a id="edit-base-download-mp3" class="text-button">Download MP3</a></div></div><canvas id="edit-base-wave" aria-label="Backing waveform"></canvas><div class="stem-controls"><button id="edit-base-mute" class="pill-button subtle" aria-pressed="false">Mute backing</button><label for="edit-base-gain">Backing volume</label><input id="edit-base-gain" type="range" min="0" max="2" step="0.01" value="1"><output id="edit-base-level">100%</output></div></div>
+      <div class="stem-track voice-track"><div class="stem-head"><div><span class="stem-mark">V</span><strong>Voice</strong></div><div style="display:flex;gap:10px;align-items:center;"><a id="edit-voice-download" class="text-button">Download FLAC</a><a id="edit-voice-download-mp3" class="text-button">Download MP3</a></div></div><label for="edit-voice-choice">Vocal track</label><select id="edit-voice-choice"><option value="original">Original separated voice</option></select><canvas id="edit-voice-wave" aria-label="Voice waveform"></canvas><div class="stem-controls"><button id="edit-voice-mute" class="pill-button subtle" aria-pressed="false">Mute voice</button><label for="edit-voice-gain">Voice volume</label><input id="edit-voice-gain" type="range" min="0" max="2" step="0.01" value="1"><output id="edit-voice-level">100%</output></div><div class="voice-offset"><label for="edit-offset">Voice alignment (ms)</label><input id="edit-offset" type="number" min="-10000" max="10000" step="10" value="0"><span class="field-hint">Positive = delay · negative = advance</span></div></div>
+      <div class="editor-export"><button id="edit-export" class="pill-button">Export FLAC mix</button><button id="edit-reset" class="text-button">Reset the settings</button><span id="edit-export-status" class="field-hint"></span></div><div id="edit-mixes" class="editor-mixes"></div>
+      <div class="editor-replace"><div class="section-eyebrow">A NEW PERFORMANCE</div><h2>Change the voice. Keep the backing.</h2><p>Import a recorded voice or try ACE-Step on the backing. In the mix we always use the separated backing kept here.</p><div class="editor-import"><label class="pill-button subtle" for="edit-import">Import an audio voice</label><input id="edit-import" type="file" accept="audio/*" hidden><span class="field-hint">WAV, FLAC, MP3 · maximum 150 MB / 10 minutes</span></div>
+        <details id="edit-cover-options"><summary>Generate a new voice with ACE-Step · experimental</summary><label for="edit-cover-tags">Desired style and voice</label><textarea id="edit-cover-tags" rows="3" maxlength="3000" placeholder="warm female vocals, jazz, soft intimate singing…"></textarea><label for="edit-cover-lyrics">Lyrics to sing</label><textarea id="edit-cover-lyrics" rows="8" maxlength="12000"></textarea><p class="field-hint">ACE generates a full cover using the backing as a reference. Sonora extracts the voice from it and places it over the kept backing. Melody, pronunciation and synchronisation may vary; the separation may leave residue.</p><button id="edit-cover" class="pill-button">Generate new voice</button><p id="edit-cover-status" class="field-hint" role="status"></p></details>
+      </div><p class="editor-note">The originals stay in the library. The separated backing may contain residue of the voice; the new mix keeps its length and cuts the voice that goes past the end. If the sum exceeds the maximum level, the export lowers the overall volume to avoid distortion.</p></div>`;
   const $ = id => panel.querySelector('#' + id);
   let state = {},
     selected = null,
@@ -169,13 +163,13 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     loading = true;
     buffers = {};
     $('edit-play').disabled = true;
-    $('edit-play').textContent = '⏳ Uploading…';
-    $('edit-status').textContent = 'Loading tracks for playback…';
+    $('edit-play').textContent = '⏳ Loading…';
+    $('edit-status').textContent = 'Loading tracks for listening…';
     try {
       ctx ??= new AudioContext();
       const decode = async route => {
         const r = await fetch(route);
-        if (!r.ok) throw new Error('Track audio is unavailable.');
+        if (!r.ok) throw new Error('Audio track not available.');
         return ctx.decodeAudioData(await r.arrayBuffer());
       };
       const [base, voice, original] = await Promise.all([
@@ -226,7 +220,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     $('edit-voice-gain').value = v.voiceGain || 1;
     $('edit-offset').value = v.offsetMs ?? 0;
     $('edit-voice-choice').innerHTML =
-      '<option value="original">Original separated vocals</option>' +
+      '<option value="original">Original separated voice</option>' +
       (s.voices || []).map(v => `<option value="${v.id}">${esc(v.label)}</option>`).join('');
     $('edit-voice-choice').value = v.voiceId || 'original';
     updateLabels();
@@ -244,9 +238,9 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     state = next;
     const jobs = (state.jobs || []).filter(j => j.status === 'done' && !j.archived);
     const externalSessions = (state.editor?.sessions || []).filter(s => s.source?.kind === 'import');
-    let options = '<option value="">Choose a track from your library or upload one</option>';
+    let options = '<option value="">Choose a song from the library or upload one</option>';
     if (externalSessions.length) {
-      options += `<optgroup label="External tracks">${externalSessions.map(s => `<option value="${s.id}">${esc(s.title || 'Track esterno')}</option>`).join('')}</optgroup>`;
+      options += `<optgroup label="External songs">${externalSessions.map(s => `<option value="${s.id}">${esc(s.title || 'External song')}</option>`).join('')}</optgroup>`;
     }
     if (jobs.length) {
       options += `<optgroup label="Sonora library">${jobs.map(j => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</optgroup>`;
@@ -266,27 +260,28 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     $('edit-separate').disabled = !selected || busy || !!session?.stems || !state.editor?.available;
     // A track that already is instrumental (or an imported file) can be used as the base without separating it.
     const trackJob = state.jobs.find(j => j.id === selected);
-    $('edit-instrumental').hidden = !selected || !!session?.stems || (!!trackJob && !trackJob.input?.instrumental);
+    $('edit-instrumental').hidden =
+      !selected || !!session?.stems || (!!trackJob && !trackJob.input?.instrumental);
     $('edit-instrumental').disabled = busy || !state.editor?.available;
     $('edit-separate').textContent = busy
       ? 'Processing…'
       : session?.instrumentalOnly
-        ? 'Instrumental track'
+        ? 'Instrumental song'
         : session?.stems
-          ? 'Tracks separated'
-        : 'Separate vocals and instrumental';
+          ? 'Separated tracks'
+          : 'Split voice and backing';
     $('edit-workspace').hidden = !session?.stems;
     $('edit-status').textContent = loading
-      ? 'Loading tracks for playback…'
+      ? 'Loading tracks for listening…'
       : !selected
-        ? 'Choose a completed track or upload an audio file to get started.'
+        ? 'Choose a finished song or upload an audio file to start.'
         : busy
           ? session.phase
           : session?.stems
-            ? 'Due tracks pronte · ' +
+            ? 'Two tracks ready · ' +
               time(session.duration) +
-              (session.stemAttenuation < 1 ? ' · overall level lowered to prevent distortion' : '')
-            : 'Separation runs on this computer. The first use prepares the model.';
+              (session.stemAttenuation < 1 ? ' · common volume reduced to avoid distortion' : '')
+            : 'The separation happens on the computer. The first use prepares the model.';
     const error = session?.error || session?.coverError;
     $('edit-error').hidden = !error;
     $('edit-error').textContent = error || '';
@@ -299,7 +294,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
       busy || !session?.stems || !!session.pendingCoverId || !state.health?.ready || isImported;
     const pending = state.jobs?.find(j => j.id === session?.pendingCoverId);
     $('edit-cover-status').textContent = pending
-      ? 'New vocals · ' +
+      ? 'New voice · ' +
         pending.phase +
         (pending.progress ? ` ${pending.progress.value}/${pending.progress.max}` : '')
       : '';
@@ -319,7 +314,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     }
     hint.hidden = !weak;
     hint.textContent = weak
-      ? 'The extracted vocals are very quiet. Try another style or import an audio vocal.'
+      ? 'The extracted voice is very weak. Try another style or import an audio voice.'
       : '';
     $('edit-base-download').href = url(selected, 'base', 'original', true, 'flac');
     if ($('edit-base-download-mp3'))
@@ -330,7 +325,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     $('edit-mixes').innerHTML = (session.mixes || [])
       .map(
         (m, i) =>
-          `<a class="pill-button subtle" href="${url(selected, 'mix', m.id, true)}">${i === 0 ? 'Latest mix' : 'Mix ' + (session.mixes.length - i)} · FLAC</a><button class="text-button" data-lab-mix="${m.id}">Master in Audio Lab</button><span class="field-hint">${m.attenuation < 1 ? 'Level reduced by ' + Math.round((1 - m.attenuation) * 100) + '% to prevent clipping.' : ''}</span>`
+          `<a class="pill-button subtle" href="${url(selected, 'mix', m.id, true)}">${i === 0 ? 'Latest mix' : 'Mix ' + (session.mixes.length - i)} · FLAC</a><button class="text-button" data-lab-mix="${m.id}">Master in Audio Lab</button><span class="field-hint">${m.attenuation < 1 ? 'Volume reduced by ' + Math.round((1 - m.attenuation) * 100) + '% to avoid distortion.' : ''}</span>`
       )
       .join('');
     $('edit-export-status').textContent = busy ? session.phase : '';
@@ -364,7 +359,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
   $('edit-separate').addEventListener('click', async () => {
     try {
       await api(`/api/editor/${selected}/separate`, 'POST', {});
-      toast('Vocal/instrumental separation started.');
+      toast('Voice/backing separation started.');
     } catch (e) {
       toast(e.message);
     }
@@ -372,7 +367,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
   $('edit-instrumental').addEventListener('click', async () => {
     try {
       await api(`/api/editor/${selected}/separate`, 'POST', { instrumental: true });
-      toast('Track ready as the base: no separation needed.');
+      toast('Song ready as the backing: no separation needed.');
     } catch (e) {
       toast(e.message);
     }
@@ -436,7 +431,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     const file = $('edit-import').files[0];
     if (!file) return;
     try {
-      if (file.size > 150 * 1024 * 1024) throw new Error('The file is larger than 150 MB.');
+      if (file.size > 150 * 1024 * 1024) throw new Error('The file exceeds 150 MB.');
       const r = await fetch(`/api/editor/${selected}/voice`, {
         method: 'POST',
         headers: {
@@ -448,7 +443,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
       });
       const result = await r.json();
       if (!r.ok) throw new Error(result.error);
-      toast('Preparing new vocals.');
+      toast('Preparation of the new voice started.');
     } catch (e) {
       toast(e.message);
     } finally {
@@ -459,9 +454,9 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     const file = $('edit-upload-song').files[0];
     if (!file) return;
     try {
-      if (file.size > 150 * 1024 * 1024) throw new Error('The file is larger than 150 MB.');
+      if (file.size > 150 * 1024 * 1024) throw new Error('The file exceeds 150 MB.');
       pause();
-      $('edit-status').textContent = 'Uploading external track…';
+      $('edit-status').textContent = 'Uploading the external song…';
       const r = await fetch('/api/editor/import', {
         method: 'POST',
         headers: {
@@ -472,8 +467,8 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
         body: file,
       });
       const result = await r.json();
-      if (!r.ok) throw new Error(result.error || 'Upload failed.');
-      toast('External track uploaded and ready for separation.');
+      if (!r.ok) throw new Error(result.error || 'Error during upload.');
+      toast('External song uploaded: ready for separation.');
       await select(result.id);
     } catch (e) {
       toast(e.message);
@@ -489,7 +484,7 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
       await api(`/api/editor/${idToRemove}`, 'DELETE');
       selected = null;
       session = null;
-      toast('External track removed.');
+      toast('External song removed.');
       render(state);
     } catch (e) {
       toast(e.message);
@@ -499,10 +494,10 @@ export function initAudioEditor({ api, toast, pauseLibrary, openView, openLab })
     try {
       const tags = $('edit-cover-tags').value.trim(),
         lyrics = $('edit-cover-lyrics').value.trim();
-      if (!tags || !lyrics) throw new Error('Enter a style and lyrics for the new vocals.');
+      if (!tags || !lyrics) throw new Error('Enter the style and lyrics for the new voice.');
       $('edit-cover').disabled = true;
       await api(`/api/editor/${selected}/cover`, 'POST', { tags, lyrics });
-      toast('Cover queued. The new vocals will appear here after separation.');
+      toast('Cover queued. The new voice will appear here after the separation.');
     } catch (e) {
       toast(e.message);
       render(state);

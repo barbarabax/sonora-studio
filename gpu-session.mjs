@@ -10,19 +10,13 @@
 //
 //
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: createGpuSession
-// used_by: sonora-studio/gpu-session-watchdog.mjs
-//                   sonora-studio/server.mjs
+// used_by: gpu-session-watchdog.mjs
+//                   server.mjs
 // rules:   Record expiry before starting paid compute; never cancel generation; confirm stop remotely.
 // agent:   unknown
 import fs from 'node:fs';
@@ -61,7 +55,7 @@ export function createGpuSession({
     try {
       fd = fs.openSync(lock, 'wx');
     } catch (e) {
-      if (e.code === 'EEXIST') throw new Error('GPU session is updating. Try again in a few seconds.');
+      if (e.code === 'EEXIST') throw new Error('GPU session being updated. Try again in a few seconds.');
       throw e;
     }
     try {
@@ -74,7 +68,7 @@ export function createGpuSession({
   async function stopUnlocked() {
     const s = read();
     if (s.phase === 'off') return status();
-    if (s.endpointId !== getEndpointId()) throw new Error('The saved RunPod session belongs to a different endpoint.');
+    if (s.endpointId !== getEndpointId()) throw new Error('Different session endpoint: check RunPod.');
     save({ ...s, phase: 'stopping', expiresAt: Math.min(s.expiresAt, now()), error: null });
     try {
       await remote.sessionSettings(0);
@@ -82,7 +76,7 @@ export function createGpuSession({
     } catch {
       save({
         ...read(),
-        error: 'Shutdown was not confirmed. Sonora will retry automatically; check RunPod if the issue persists.',
+        error: 'Shutdown not confirmed. Sonora retries automatically; check RunPod if it persists.',
       });
       throw new Error(status().error);
     }
@@ -93,21 +87,18 @@ export function createGpuSession({
     start: () =>
       locked(async () => {
         const activeEndpointId = getEndpointId();
-        if (!activeEndpointId) throw new Error('Configure a RunPod endpoint first.');
-        if (read().phase !== 'off')
-          throw new Error('End the current session before starting another.');
+        if (!activeEndpointId) throw new Error('RunPod not configured.');
+        if (read().phase !== 'off') throw new Error('End the current session before starting a new one.');
         const before = await remote.sessionSettings();
         if (before.workersMin !== 0 || before.workersMax !== 1)
-          throw new Error('The RunPod configuration must request a minimum of 0 and a maximum of 1 GPU.');
+          throw new Error('The RunPod configuration must have a minimum of 0 and a maximum of 1 GPU.');
         save({ phase: 'starting', endpointId: activeEndpointId, expiresAt: now() + 30 * 60000 });
         try {
           await remote.sessionSettings(1);
           save({ ...read(), phase: 'active' });
         } catch {
           save({ ...read(), phase: 'stopping', expiresAt: now() });
-          throw new Error(
-            'Startup was not confirmed. Automatic shutdown has been scheduled.'
-          );
+          throw new Error('Start not confirmed. A return to automatic shutdown has been scheduled.');
         }
         return status();
       }),

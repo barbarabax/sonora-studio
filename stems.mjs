@@ -1,14 +1,10 @@
 // @codedna
 // description: Six-stem separation sessions, AI-generated extra instrument layers and lossless mixdown with per-track volume, pan, mute and solo.
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: STEM_NAMES | validateLanes | validateStemMix | validateClips | fxFilters | lanePlan | stemMixFilter | laneRenderGraph | createStems
-// used_by: sonora-studio/server.mjs
+// used_by: server.mjs
 // rules:   Source audio is read-only; session folders are server-owned; separation is CPU-only, serialized through the shared CPU lock; the mix filter must match public/mixer-ui.mjs (gain, balance pan, solo/mute); layer ids are song-job UUIDs registered in the session, never free paths.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_stems | Mixer a stem: htdemucs_6s via audio-separator (≈1.2x realtime on the VPS CPU), preview MP3 plus FLAC stems.
 // claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_layers | Added AI instrument layers: a remix job of the non-vocal stems generates the new instrument on the same timeline; the finished job is registered as a layer.
@@ -44,7 +40,7 @@ function runCapture(command, args) {
     let out = '';
     child.stdout.on('data', d => (out += d));
     child.on('error', reject);
-    child.on('close', code => (code === 0 ? resolve(out) : reject(new Error('Audio file is unreadable.'))));
+    child.on('close', code => (code === 0 ? resolve(out) : reject(new Error('Audio file not readable.'))));
   });
 }
 
@@ -96,7 +92,7 @@ export function validateClips(raw, keys, sources = keys) {
   for (const key of Object.keys(raw ?? {})) {
     if (!keys.includes(key)) throw new Error('Unknown instrument.');
     const list = raw[key];
-    if (!Array.isArray(list) || list.length > 64) throw new Error('Too many cuts on one track.');
+    if (!Array.isArray(list) || list.length > 64) throw new Error('Too many cuts on a track.');
     out[key] = list.map(c => {
       const at = Number(c?.at),
         from = Number(c?.from),
@@ -179,7 +175,7 @@ export function lanePlan(tracks, clips = {}) {
     };
   });
   if (!lanes.some(l => l.segments.length))
-    throw new Error('No instruments are active. Enable at least one track.');
+    throw new Error('No instrument is active: turn on at least one track.');
   return lanes.filter(l => l.segments.length);
 }
 
@@ -340,7 +336,7 @@ export function createStems({
   for (const s of db.sessions)
     if (['queued', 'processing'].includes(s.status)) {
       s.status = 'failed';
-      s.error = 'Stem separation was interrupted by a restart. Try again.';
+      s.error = 'Separation interrupted by the restart. Try again.';
       s.phase = 'Interrupted';
     }
   const get = id => db.sessions.find(s => s.id === id);
@@ -348,14 +344,14 @@ export function createStems({
   const layersOf = s => s?.layers ?? [];
   const externalsOf = s => s?.externals ?? [];
   function source(id) {
-    if (!uuid(id)) throw new Error('Invalid track ID.');
+    if (!uuid(id)) throw new Error('Invalid song ID.');
     const job = getJob(id);
     if (job?.status !== 'done' || job.assets?.flac !== `${id}.flac`)
-      throw new Error('Select a completed track.');
+      throw new Error('Choose a finished song.');
     if (job.kind === 'layer')
-      throw new Error('This is an added instrument, not a track. Open it from the original track.');
+      throw new Error('This is an added instrument, not a song: open it from the original song.');
     const file = path.join(dataDir, 'audio', id + '.flac');
-    if (!fs.existsSync(file)) throw new Error('Original audio was not found.');
+    if (!fs.existsSync(file)) throw new Error('Original audio not found.');
     return file;
   }
   function change(s, fields) {
@@ -393,12 +389,12 @@ export function createStems({
       };
       child.once('error', err => {
         cleanup();
-        reject(new Error(err.code === 'ENOENT' ? 'Stem separator is not installed.' : err.message));
+        reject(new Error(err.code === 'ENOENT' ? 'Separator not installed.' : err.message));
       });
       child.once('close', code => {
         cleanup();
         if (code === 0 && last?.done) resolve(last);
-        else reject(new Error(last?.error || errorText.trim() || 'Stem separation was interrupted.'));
+        else reject(new Error(last?.error || errorText.trim() || 'Separation interrupted.'));
       });
     });
   }
@@ -417,7 +413,7 @@ export function createStems({
         };
         const result = await cpu(
           () => (runTask || worker)(task, phase => change(s, { phase })),
-          () => change(s, { phase: 'Waiting: another audio task is in progress' })
+          () => change(s, { phase: 'Waiting: another audio processing is in progress' })
         );
         if (closed) break;
         change(s, { phase: 'Creating previews' });
@@ -441,21 +437,27 @@ export function createStems({
   }
   return {
     snapshot: () => ({
-      sessions: db.sessions.map(({ id, status, phase, stems, error, layers, grid, externals }) => ({
-        id,
-        status,
-        phase,
-        stems,
-        error,
-        layers: layers ?? [],
-        grid: grid ?? null,
-        externals: externals ?? [],
-      })),
+      sessions: db.sessions.map(
+        ({ id, title, imported, workspaceId, status, phase, stems, error, layers, grid, externals }) => ({
+          id,
+          title,
+          imported,
+          workspaceId,
+          status,
+          phase,
+          stems,
+          error,
+          layers: layers ?? [],
+          grid: grid ?? null,
+          externals: externals ?? [],
+        })
+      ),
     }),
     /** Constant-tempo beat grid of a separated song (cached in the session); used for snapping on the timeline. */
     async ensureGrid(id) {
       const s = get(id);
-      if (!s?.stems || s.status !== 'ready') throw new Error('Separate the track first.');
+      if (!s?.stems || s.status !== 'ready') throw new Error('Split the song first.');
+      if (s.imported) return s.grid ?? null;
       if (s.grid) return s.grid;
       const result = await cpu(
         () => (runTask || worker)({ action: 'grid', stemDir: dir(id) }, () => {}),
@@ -468,11 +470,94 @@ export function createStems({
       source(id);
       let s = get(id);
       if (s && (s.stems || ['queued', 'processing'].includes(s.status))) return s;
-      if (queue.length >= 4) throw new Error('Wait for the current stem separations to finish.');
+      if (queue.length >= 4) throw new Error('Wait for the separations in progress to finish.');
       if (!s) db.sessions.push((s = { id, status: 'idle', phase: 'Ready to separate' }));
       change(s, { status: 'queued', phase: 'Queued for separation', error: null });
       queue.push(s);
       void drain();
+      return s;
+    },
+    createImport({ title, workspaceId }) {
+      const name = String(title ?? '').trim();
+      if (!name || name.length > 100) throw new Error('Give the song a title (maximum 100 characters).');
+      const s = {
+        id: randomUUID(),
+        title: name,
+        workspaceId,
+        imported: true,
+        status: 'importing',
+        phase: 'Add the stems',
+        stems: [],
+        durations: {},
+      };
+      db.sessions.push(s);
+      save();
+      return s;
+    },
+    async importStem(id, name, stream) {
+      const s = get(id);
+      if (!s?.imported || s.status !== 'importing') throw new Error('Import session not found.');
+      if (!STEM_NAMES.includes(name)) throw new Error('Invalid stem type.');
+      if (s.stems.includes(name)) throw new Error(`The stem ${name} is already present.`);
+      const entry = await this.addExternal(id, stream, { name, slot: name });
+      return entry;
+    },
+    removeImportedStem(id, name) {
+      const s = get(id);
+      if (!s?.imported || s.status !== 'importing' || !s.stems.includes(name))
+        throw new Error('Imported stem not found.');
+      change(s, {
+        stems: s.stems.filter(n => n !== name),
+        durations: Object.fromEntries(Object.entries(s.durations).filter(([n]) => n !== name)),
+      });
+      for (const ext of ['flac', 'mp3']) fs.rmSync(path.join(dir(id), `${name}.${ext}`), { force: true });
+    },
+    async prepareImport(id) {
+      const s = get(id);
+      if (!s?.imported || s.status !== 'importing' || !s.stems.length)
+        throw new Error('Import at least one stem before opening the mixer.');
+      const durations = s.stems.map(name => s.durations[name]);
+      const longest = Math.max(...durations);
+      if (longest > 900) throw new Error('The maximum duration in the mixer is 15 minutes.');
+      if (durations.some(n => longest - n > 1))
+        throw new Error('The stems must have the same duration (tolerance: 1 second).');
+      const output = path.join(dir(id), 'source');
+      const flac = output + '.flac',
+        mp3 = output + '.mp3';
+      const inputs = s.stems.flatMap(name => ['-i', path.join(dir(id), name + '.flac')]);
+      const filter =
+        s.stems.length === 1
+          ? '[0:a]anull[out]'
+          : `${s.stems.map((_, i) => `[${i}:a]`).join('')}amix=inputs=${s.stems.length}:normalize=0:duration=longest,alimiter=limit=0.97[out]`;
+      await cpu(async () => {
+        await run('ffmpeg', [
+          '-y',
+          '-v',
+          'error',
+          ...inputs,
+          '-filter_complex',
+          filter,
+          '-map',
+          '[out]',
+          '-c:a',
+          'flac',
+          flac,
+        ]);
+        await run('ffmpeg', ['-y', '-v', 'error', '-i', flac, '-b:a', '160k', mp3]);
+      });
+      return {
+        flac,
+        mp3,
+        duration: longest,
+        title: s.title,
+        workspaceId: s.workspaceId,
+        stems: [...s.stems],
+      };
+    },
+    completeImport(id) {
+      const s = get(id);
+      if (!s?.imported || s.status !== 'importing' || !s.stems.length) throw new Error('Invalid import.');
+      change(s, { status: 'ready', phase: 'Ready', error: null });
       return s;
     },
     /** Path of a stem (preview MP3 or lossless FLAC) of a finished separation, or of a registered AI layer. */
@@ -481,7 +566,7 @@ export function createStems({
       if (!['mp3', 'flac'].includes(format)) throw new Error('Invalid format.');
       if (layersOf(s).some(l => l.id === name)) return path.join(dataDir, 'audio', `${name}.${format}`);
       if (externalsOf(s).some(x => x.id === name)) return path.join(dir(id), 'ext', `${name}.${format}`);
-      if (!s?.stems || !s.stems.includes(name)) throw new Error('Instrument is unavailable.');
+      if (!s?.stems || !s.stems.includes(name)) throw new Error('Instrument not available.');
       return path.join(dir(id), `${name}.${format}`);
     },
     /**
@@ -490,8 +575,9 @@ export function createStems({
      */
     async layerSource(id, window = null) {
       const s = get(id);
-      if (!s?.stems || s.status !== 'ready') throw new Error('Separate the track first.');
+      if (!s?.stems || s.status !== 'ready') throw new Error('Split the song first.');
       const names = s.stems.filter(n => n !== 'vocals');
+      if (!names.length) throw new Error('To add an AI instrument you need at least one stem without voice.');
       const file = path.join(dir(id), `layer-source-${randomUUID()}.mp3`);
       const inputs = names.flatMap(n => ['-i', path.join(dir(id), n + '.flac')]);
       await run('ffmpeg', [
@@ -518,12 +604,15 @@ export function createStems({
      * Stores an audio file from outside (an import or a take recorded in the browser): streamed to disk with a size limit,
      * converted to 44.1 kHz stereo FLAC plus a preview MP3. It becomes a source that clips on any track can play.
      */
-    async addExternal(id, stream, { name = 'External audio', kind = 'import' } = {}) {
+    async addExternal(id, stream, { name = 'External audio', kind = 'import', slot = null } = {}) {
       const s = get(id);
-      if (!s?.stems || s.status !== 'ready') throw new Error('Separate the track first.');
-      if (externalsOf(s).length >= 24) throw new Error('You can add up to 24 external audio files per track.');
+      if (!s?.stems || (slot ? !s.imported || s.status !== 'importing' : s.status !== 'ready'))
+        throw new Error('Split the song first.');
+      if (slot && (!STEM_NAMES.includes(slot) || s.stems.includes(slot)))
+        throw new Error('Stem already present or not valid.');
+      if (!slot && externalsOf(s).length >= 24) throw new Error('Maximum 24 external audio files per song.');
       const extId = randomUUID(),
-        folder = path.join(dir(id), 'ext');
+        folder = slot ? dir(id) : path.join(dir(id), 'ext');
       fs.mkdirSync(folder, { recursive: true });
       const upload = path.join(folder, extId + '.upload');
       let bytes = 0;
@@ -531,18 +620,18 @@ export function createStems({
       try {
         for await (const chunk of stream) {
           bytes += chunk.length;
-          if (bytes > 250 * 1024 * 1024) throw new Error('File exceeds 250 MB.');
+          if (bytes > 250 * 1024 * 1024) throw new Error('The file exceeds 250 MB.');
           fs.writeSync(fd, chunk);
         }
-        if (bytes < 64) throw new Error('Audio file is empty.');
+        if (bytes < 64) throw new Error('Empty audio file.');
       } catch (e) {
         fs.closeSync(fd);
         fs.rmSync(upload, { force: true });
         throw e;
       }
       fs.closeSync(fd);
-      const flac = path.join(folder, extId + '.flac'),
-        mp3 = path.join(folder, extId + '.mp3');
+      const flac = path.join(folder, (slot || extId) + '.flac'),
+        mp3 = path.join(folder, (slot || extId) + '.mp3');
       try {
         // A mono source is copied to both channels at full level (a plain up-mix would lose 3 dB).
         const channels = Number(
@@ -566,7 +655,11 @@ export function createStems({
         await run('ffmpeg', ['-y', '-v', 'error', '-i', flac, '-b:a', '160k', mp3]);
         const duration = await audioSeconds(flac);
         if (duration < 0.1 || duration > 1800)
-          throw new Error('Duration must be between 0.1 seconds and 30 minutes.');
+          throw new Error('The duration must be between 0.1 seconds and 30 minutes.');
+        if (slot) {
+          change(s, { stems: [...s.stems, slot], durations: { ...s.durations, [slot]: duration } });
+          return { name: slot, duration };
+        }
         const entry = {
           id: extId,
           name: String(name).slice(0, 80) || 'External audio',
@@ -584,7 +677,7 @@ export function createStems({
     },
     removeExternal(id, extId) {
       const s = get(id);
-      if (!s || !externalsOf(s).some(x => x.id === extId)) throw new Error('External audio was not found.');
+      if (!s || !externalsOf(s).some(x => x.id === extId)) throw new Error('External audio not found.');
       change(s, { externals: externalsOf(s).filter(x => x.id !== extId) });
       for (const ext of ['flac', 'mp3'])
         fs.rmSync(path.join(dir(id), 'ext', `${extId}.${ext}`), { force: true });
@@ -597,7 +690,7 @@ export function createStems({
     },
     removeLayer(id, layerId) {
       const s = get(id);
-      if (!s || !layersOf(s).some(l => l.id === layerId)) throw new Error('Added instrument was not found.');
+      if (!s || !layersOf(s).some(l => l.id === layerId)) throw new Error('Added instrument not found.');
       change(s, { layers: layersOf(s).filter(l => l.id !== layerId) });
     },
     /**
@@ -606,7 +699,7 @@ export function createStems({
      */
     async mixdown(id, body) {
       const s = get(id);
-      if (!s?.stems || s.status !== 'ready') throw new Error('Separate the track first.');
+      if (!s?.stems || s.status !== 'ready') throw new Error('Split the song first.');
       const layerIds = layersOf(s).map(l => l.id),
         externalIds = externalsOf(s).map(x => x.id),
         laneIds = validateLanes(body.lanes);
@@ -619,7 +712,10 @@ export function createStems({
       // Tempo for tempo-synced delays: the one the timeline showed (it may carry the ×2/÷2 correction), else the detected one.
       const asked = Number(body.bpm);
       const tempo = asked >= 30 && asked <= 300 ? asked : s.grid?.bpm || 100;
-      const total = await audioSeconds(path.join(dir(id), 'vocals.flac'));
+      const total =
+        Math.max(...s.stems.map(name => s.durations?.[name] || 0)) ||
+        (await audioSeconds(path.join(dir(id), s.stems[0] + '.flac')));
+      for (const name of STEM_NAMES) if (!s.stems.includes(name)) delete tracks[name];
       const out = path.join(dir(id), 'mixes');
       fs.mkdirSync(out, { recursive: true });
       const work = path.join(out, 'tmp-' + randomUUID());

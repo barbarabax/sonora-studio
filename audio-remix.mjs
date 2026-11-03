@@ -1,19 +1,13 @@
 // @codedna
 // description: ffmpeg helpers for remix/repaint: compressed source for the GPU worker and a crossfaded splice of a regenerated section.
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: audioSeconds | encodeSource | repaintWindow | spliceSection | placeSection
-// used_by: sonora-studio/server.mjs
-//                   sonora-studio/stems.mjs
+// used_by: server.mjs
+//                   stems.mjs
 // rules:   Never write outside the given paths; the original song file is only read. A repaint splices a regenerated window back with 0.4 s crossfades, so the original must keep its exact length.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-08 | s_20261008_remix | Added remix/repaint support (ACE-Step has no repaint node in ComfyUI: the window is regenerated as a remix and spliced).
 import { spawn } from 'node:child_process';
@@ -49,7 +43,7 @@ export async function audioSeconds(file) {
     file,
   ]);
   const value = Number(out.trim());
-  if (!Number.isFinite(value) || value <= 0) throw new Error('Audio duration cannot be read.');
+  if (!Number.isFinite(value) || value <= 0) throw new Error('Audio duration not readable.');
   return value;
 }
 
@@ -81,7 +75,7 @@ export async function encodeSource(source, target, { start = 0, length = null } 
 export function repaintWindow(start, end, total) {
   const length = end - start;
   if (!(start >= 0) || !(end > start) || end > total + 0.05) throw new Error('Invalid range.');
-  if (length < 1) throw new Error('The section to regenerate must be at least 1 second long.');
+  if (length < 1) throw new Error('The part to regenerate must last at least 1 second.');
   const pad = Math.max(2, (MIN_WINDOW - length) / 2);
   let windowStart = Math.max(0, start - pad),
     windowEnd = Math.min(total, end + pad);
@@ -90,7 +84,7 @@ export function repaintWindow(start, end, total) {
     else windowStart = Math.max(0, windowEnd - MIN_WINDOW);
   }
   if (windowEnd - windowStart < MIN_WINDOW)
-    throw new Error('The track is too short to regenerate a section (minimum 10 seconds).');
+    throw new Error('The song is too short to regenerate a part (minimum 10 seconds).');
   return { windowStart, windowEnd };
 }
 

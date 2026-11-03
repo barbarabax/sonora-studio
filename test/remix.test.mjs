@@ -16,9 +16,9 @@ test('repaint window adds context, keeps the 10 s minimum and stays inside the s
   assert.deepEqual(repaintWindow(0, 4, 100), { windowStart: 0, windowEnd: 10 });
   const end = repaintWindow(96, 100, 100);
   assert.ok(end.windowEnd === 100 && end.windowEnd - end.windowStart >= 10);
-  assert.throws(() => repaintWindow(10, 10.5, 100), /at least 1 second/);
-  assert.throws(() => repaintWindow(10, 120, 100), /Invalid range/);
-  assert.throws(() => repaintWindow(0, 5, 8), /too short/);
+  assert.throws(() => repaintWindow(10, 10.5, 100), /The part to regenerate/);
+  assert.throws(() => repaintWindow(10, 120, 100), /Invalid range\./);
+  assert.throws(() => repaintWindow(0, 5, 8), /The song is too/);
 });
 
 test('splice replaces only the chosen section and keeps the song length', { skip: !hasFfmpeg }, async t => {

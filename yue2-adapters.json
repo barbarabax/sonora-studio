@@ -1,0 +1,669 @@
+{
+  "source": "YuE2-Studio config/adapter-catalog.json (MIT, https://github.com/timoncool/YuE2-Studio); each LoRA belongs to its author, see page.",
+  "license": "The LoRA weights derive from YuE2-3B (CC BY-NC 4.0): check each author page before any commercial use.",
+  "adapters": [
+    {
+      "id": "yue2-instrumental",
+      "kind": "Composition",
+      "slider": false,
+      "name": "Instrumental",
+      "description": "Songs without voice. In the lyrics write [instrumental] or only the section tags ([intro] [verse] [chorus]); it works better with the plan.",
+      "author": "Mothersuperior",
+      "page": "https://huggingface.co/Mothersuperior/YuE2-instrumental-cot-full-loras",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Mothersuperior/YuE2-instrumental-cot-full-loras/resolve/947f2f4b28978b2b6c3e316e6a87925c76bf3c4b/ar_lora_inst_v3abc.bf16.safetensors",
+          "file": "ar_lora_inst_v3abc.bf16.safetensors",
+          "bytes": 139502088
+        }
+      ]
+    },
+    {
+      "id": "yue2-industrial-rock",
+      "kind": "Style",
+      "slider": false,
+      "name": "Industrial rock",
+      "description": "Heavy mechanical rhythms and distorted guitars. It changes both the composition and the sound.",
+      "author": "monsterovich",
+      "page": "https://huggingface.co/monsterovich/yue2-industrial-rock-lora",
+      "scales": {
+        "ar": 1,
+        "nar": 0.5
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/monsterovich/yue2-industrial-rock-lora/resolve/a71706d59e2874f1e6db9aa10e8da5cc19e6c924/adapter-ar-179/lora.safetensors",
+          "file": "industrial-ar.safetensors",
+          "bytes": 34907280
+        },
+        {
+          "url": "https://huggingface.co/monsterovich/yue2-industrial-rock-lora/resolve/a71706d59e2874f1e6db9aa10e8da5cc19e6c924/adapter-nar-179-v2/lora.safetensors",
+          "file": "industrial-nar.safetensors",
+          "bytes": 140046120
+        }
+      ]
+    },
+    {
+      "id": "yue2-epic-trailer",
+      "kind": "Style",
+      "slider": false,
+      "name": "Epic trailer",
+      "description": "Cinematic trailer epic: choirs, brass, big drums.",
+      "author": "monsterovich",
+      "page": "https://huggingface.co/monsterovich/yue2-steps-from-hell",
+      "scales": {
+        "ar": 0.5,
+        "nar": 0.375
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/monsterovich/yue2-steps-from-hell/resolve/bc84ad1867158e1112ab9601c74b338847d9dff2/adapter-ar-195/lora.safetensors",
+          "file": "epic-ar.safetensors",
+          "bytes": 34907280
+        },
+        {
+          "url": "https://huggingface.co/monsterovich/yue2-steps-from-hell/resolve/bc84ad1867158e1112ab9601c74b338847d9dff2/adapter-nar-194/lora.safetensors",
+          "file": "epic-nar.safetensors",
+          "bytes": 140046120
+        }
+      ]
+    },
+    {
+      "id": "yue2-sv-billie",
+      "kind": "Artist",
+      "slider": false,
+      "name": "SV Billie",
+      "description": "An artist's LoRA: intimate, whispered voice over soft modern pop.",
+      "author": "HaileyStorm",
+      "page": "https://huggingface.co/HaileyStorm/sv-billie-yue2-lora",
+      "trigger": "sv_billie",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/HaileyStorm/sv-billie-yue2-lora/resolve/94fe9fbf5dfd3e97eefeb3ef54e2801eb3b69077/sv_billie.safetensors",
+          "file": "sv_billie.safetensors",
+          "bytes": 117500888
+        }
+      ]
+    },
+    {
+      "id": "yue2-dreampop",
+      "kind": "Style",
+      "slider": false,
+      "name": "Dream pop",
+      "description": "Hazy reverb-filled guitars and suspended voices. Works better without the plan.",
+      "author": "atomtanstudio",
+      "page": "https://huggingface.co/atomtanstudio/lora-library",
+      "trigger": "sv_dreampop",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/atomtanstudio/lora-library/resolve/b5727622224c267030be0054464d953188edba49/yue2/dreampop/dreampop_sv_dreampop.safetensors",
+          "file": "dreampop_sv_dreampop.safetensors",
+          "bytes": 234969024
+        }
+      ]
+    },
+    {
+      "id": "yue2-oldschool-hiphop",
+      "kind": "Style",
+      "slider": false,
+      "name": "Old school hip-hop",
+      "description": "Boom-bap drums, dusty samples and 90s flow. Works better without the plan.",
+      "author": "atomtanstudio",
+      "page": "https://huggingface.co/atomtanstudio/lora-library",
+      "trigger": "sv_oldschoolhiphop",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/atomtanstudio/lora-library/resolve/b5727622224c267030be0054464d953188edba49/yue2/oldschoolhiphop/sv_oldschoolhiphop.safetensors",
+          "file": "sv_oldschoolhiphop.safetensors",
+          "bytes": 234969024
+        }
+      ]
+    },
+    {
+      "id": "yue2-militant-reggae",
+      "kind": "Style",
+      "slider": false,
+      "name": "Reggae militant",
+      "description": "Modern roots reggae: rough voice in patois, steppers groove, deep sub-bass. Start the style with mltnt and a descriptive phrase.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-mltnt-militant-reggae",
+      "trigger": "mltnt",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-mltnt-militant-reggae/resolve/a9fedc857cd1f3952be3177326c76526abcea53a/mltnt_steppers.safetensors",
+          "file": "mltnt_steppers.safetensors",
+          "bytes": 177279888
+        }
+      ]
+    },
+    {
+      "id": "yue2-chanson-francaise",
+      "kind": "Style",
+      "slider": false,
+      "name": "Chanson française",
+      "description": "French song with expressive voices, clean breaths and whispers. Start the style with chnsn and a descriptive phrase.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-chnsn-chanson-francaise",
+      "trigger": "chnsn",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-chnsn-chanson-francaise/resolve/e34acbcb1a14e818855093ea0dede46bf3cb1bd6/chnsn_montmartre.safetensors",
+          "file": "chnsn_montmartre.safetensors",
+          "bytes": 117500808
+        }
+      ]
+    },
+    {
+      "id": "yue2-qawwali",
+      "kind": "Style",
+      "slider": false,
+      "name": "Qawwali",
+      "description": "Live Sufi qawwali: solo voice, male chorus, harmonium, tabla and hand claps. Start the style with qwwl.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-qwwl-qawwali-sufi-tabla",
+      "trigger": "qwwl",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-qwwl-qawwali-sufi-tabla/resolve/6e5d0344b8ad9c4a799e93416953d5e0698c62af/qwwl_mehfil.safetensors",
+          "file": "qwwl_mehfil.safetensors",
+          "bytes": 177279760
+        }
+      ]
+    },
+    {
+      "id": "yue2-bulgarian-voices",
+      "kind": "Style",
+      "slider": false,
+      "name": "Bulgarian voices",
+      "description": "The Bulgarian female choir: a cappella or fused with trap, jungle, tribal house. Start the style with blgr; lyrics in Bulgarian.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-blgr-bulgarian-voices",
+      "trigger": "blgr",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-blgr-bulgarian-voices/resolve/de8ab624782e4f936383a499aca5aa38f8f719c4/blgr_rhodope.safetensors",
+          "file": "blgr_rhodope.safetensors",
+          "bytes": 177279960
+        }
+      ]
+    },
+    {
+      "id": "yue2-folk-troubadour",
+      "kind": "Style",
+      "slider": false,
+      "name": "Storyteller folk",
+      "description": "Narrative folk: protest ballads, anthems, waltzes with fingerpicked guitar. Start the style with trbdr.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-trbdr-folk-troubadour",
+      "trigger": "trbdr",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-trbdr-folk-troubadour/resolve/078b19e52baebaa71463ea94afac5ce13abfe29a/trbdr_broadside.safetensors",
+          "file": "trbdr_broadside.safetensors",
+          "bytes": 117500816
+        }
+      ]
+    },
+    {
+      "id": "yue2-canzone-italiana",
+      "kind": "Style",
+      "slider": false,
+      "name": "Italian song",
+      "description": "The Italian ballad of the Sanremo era: warm, rough baritone, piano, strings and a big chorus, sung in Italian. Start the style with cnzn.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-cnzn-canzone-italiana",
+      "trigger": "cnzn",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-cnzn-canzone-italiana/resolve/89508af770d21ea26215603fdd777f182ba4ecee/cnzn_sanremo.safetensors",
+          "file": "cnzn_sanremo.safetensors",
+          "bytes": 177279960
+        }
+      ]
+    },
+    {
+      "id": "yue2-raspy-rock-soul",
+      "kind": "Style",
+      "slider": false,
+      "name": "Gritty rock-soul",
+      "description": "Powerful, gritty female voice: almost spoken verses that rise into full-voice choruses, from 60s rhythm and blues to soul-rock. Lyrics in English. Start with grvl; plan with melody and chords.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-grvl-raspy-rock-soul",
+      "trigger": "grvl",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-grvl-raspy-rock-soul/resolve/4fec3b8491bf217d9320b509c3933d5963dae5a3/grvl_thunder.safetensors",
+          "file": "grvl_thunder.safetensors",
+          "bytes": 117500808
+        }
+      ]
+    },
+    {
+      "id": "yue2-quiet-storm",
+      "kind": "Style",
+      "slider": false,
+      "name": "Quiet storm R&B",
+      "description": "Nocturnal 80s–90s quiet storm: sweet, sensual female voice, deep bass, electric piano, pads and slow drum machines. Start with qtstrm and specify the voice (smoky contralto, breathy soprano…).",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-qtstrm-quiet-storm",
+      "trigger": "qtstrm",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-qtstrm-quiet-storm/resolve/7f8ac94880f5942e358956eb270cb925638685da/qtstrm_midnight.safetensors",
+          "file": "qtstrm_midnight.safetensors",
+          "bytes": 117500808
+        }
+      ]
+    },
+    {
+      "id": "yue2-dark-sufi",
+      "kind": "Style",
+      "slider": false,
+      "name": "Sufi dark",
+      "description": "Qawwali voice in a dark production: long notes and vocalisations over ambient guitars, synths and slow beats. Start with drksf; works better without the plan and with lyrics in syllables.",
+      "author": "becausereasons",
+      "page": "https://huggingface.co/becausereasons/yue2-qwwl-qawwali-sufi-tabla",
+      "trigger": "drksf",
+      "scales": {
+        "ar": 1,
+        "nar": 1
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/becausereasons/yue2-qwwl-qawwali-sufi-tabla/resolve/2f91d3ebff149b3661535c823e978d815097ca84/drksf_midnight.safetensors",
+          "file": "drksf_midnight.safetensors",
+          "bytes": 177279760
+        }
+      ]
+    },
+    {
+      "id": "yue2-melodic-death-metal",
+      "kind": "Style",
+      "slider": false,
+      "name": "Melodic death metal",
+      "description": "Growl voice over harmonised guitars and blast beats. Start the style with deathmetal.",
+      "author": "pduncan",
+      "page": "https://huggingface.co/pduncan/YuE2_Deathmetalv1_lora",
+      "trigger": "deathmetal",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/pduncan/YuE2_Deathmetalv1_lora/resolve/84ff5f6fe5ad1d9db10b05cc258fe881f590b1e2/deathmetalv1_step-000600.safetensors",
+          "file": "deathmetalv1_step-000600.safetensors",
+          "bytes": 278968264
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-female",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Female voice",
+      "description": "An adult female singer, without changing the phrasing and timbre of the song. Negative strength = opposite effect.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/female_v2_distilled_rank8.safetensors",
+          "file": "female_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-male",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Male voice",
+      "description": "An adult male singer, without changing the phrasing and timbre of the song. Negative strength = opposite effect.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/male_v2_distilled_rank8.safetensors",
+          "file": "male_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-pop",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Pop",
+      "description": "Clear hooks, crisp drums and a polished chorus.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/pop_v2_distilled_rank8.safetensors",
+          "file": "pop_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-hiphop",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Hip-hop",
+      "description": "Rapped verses, deep sub-bass and agile hi-hats.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/hiphop_v2_distilled_rank8.safetensors",
+          "file": "hiphop_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-rnb",
+      "kind": "Slider",
+      "slider": true,
+      "name": "R&B",
+      "description": "Warm keys, soft groove and fluid vocal phrasing.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/rnb_v2_distilled_rank8.safetensors",
+          "file": "rnb_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-indie-rock",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Indie rock",
+      "description": "Ringing guitars, moving bass and played drums.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/indie-rock_v2_distilled_rank8.safetensors",
+          "file": "indie-rock_v2_distilled_rank8.safetensors",
+          "bytes": 12891952
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-pop-punk",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Pop punk",
+      "description": "Palm-muted power chords and driving drums in the choruses.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/pop-punk_v2_distilled_rank8.safetensors",
+          "file": "pop-punk_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-metal",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Metal",
+      "description": "Heavy riffs, tight kick and big melodic choruses.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/metal_v2_distilled_rank8.safetensors",
+          "file": "metal_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-country",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Country",
+      "description": "Acoustic guitar, twang fills and a relaxed backbeat.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/country_v2_distilled_rank8.safetensors",
+          "file": "country_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-acoustic-folk",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Acoustic folk",
+      "description": "Plucked strings and a warm performance in a small room.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/acoustic-folk_v2_distilled_rank8.safetensors",
+          "file": "acoustic-folk_v2_distilled_rank8.safetensors",
+          "bytes": 12891952
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-house",
+      "kind": "Slider",
+      "slider": true,
+      "name": "House",
+      "description": "Steady club kick, offbeat hi-hats and a rolling bass.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/house_v2_distilled_rank8.safetensors",
+          "file": "house_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-disco-funk",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Disco funk",
+      "description": "Elastic bass, muted guitar and bright dancefloor strings.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/disco-funk_v2_distilled_rank8.safetensors",
+          "file": "disco-funk_v2_distilled_rank8.safetensors",
+          "bytes": 12891952
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-kpop",
+      "kind": "Slider",
+      "slider": true,
+      "name": "K-pop",
+      "description": "Sharp synth hooks, tight editing and a big chorus.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/kpop_v2_distilled_rank8.safetensors",
+          "file": "kpop_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-reggaeton",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Reggaeton",
+      "description": "Dembow drums, round sub-bass and muted melodic hooks.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/reggaeton_v2_distilled_rank8.safetensors",
+          "file": "reggaeton_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-afrobeats",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Afrobeats",
+      "description": "Interlocking percussion, melodic bass and light guitar.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/afrobeats_v2_distilled_rank8.safetensors",
+          "file": "afrobeats_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    },
+    {
+      "id": "yue2-slider-lofi",
+      "kind": "Slider",
+      "slider": true,
+      "name": "Lo-fi",
+      "description": "Soft swing drums, calm keys and tape warmth.",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/yue2-particle-sliders",
+      "scales": {
+        "ar": 1,
+        "nar": 0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/yue2-particle-sliders/resolve/31649319eee53e6da999cc4aff3e081d213f7911/distilled-rank8-v2/native/lofi_v2_distilled_rank8.safetensors",
+          "file": "lofi_v2_distilled_rank8.safetensors",
+          "bytes": 12891944
+        }
+      ]
+    }
+  ]
+}

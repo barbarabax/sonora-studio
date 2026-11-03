@@ -1,18 +1,12 @@
 // @codedna
 // description: Free song-length field (m:ss or seconds) with a menu of suggested lengths, shared by the composer and the lyrics assistant.
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: bindDurationField
-// used_by: sonora-studio/public/app.js
-//                   sonora-studio/public/prompt-ui.mjs
+// used_by: public/app.js
+//                   public/prompt-ui.mjs
 // rules:   The value is only ever read through read(): null means invalid. Valid text is normalised to m:ss on change; limits are 0:10-5:00 like the server.
 // agent:   claude-sonnet-5-5 - 2026-10-08 - Created: the duration was a fixed dropdown (could not set 2:30).
 import { parseDuration, formatDuration } from './song-duration.mjs';
@@ -24,7 +18,7 @@ import { parseDuration, formatDuration } from './song-duration.mjs';
 export function bindDurationField(input, preset, onChange = () => {}) {
   const sync = () => {
     const valid = parseDuration(input.value) !== null;
-    input.setCustomValidity(valid ? '' : 'Enter a duration from 0:10 to 5:00, for example 2:30.');
+    input.setCustomValidity(valid ? '' : 'Write a duration from 0:10 to 5:00, for example 2:30.');
     input.toggleAttribute('aria-invalid', !valid);
   };
   input.addEventListener('input', () => {

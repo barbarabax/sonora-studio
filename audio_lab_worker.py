@@ -1,11 +1,3 @@
-"""audio_lab_worker.py — Audio Lab worker. All paths come from Sonora, never from browser input.
-
-exports: report() | main(task)
-used_by: none
-rules:   none
-agent:   codedna-cli (no-llm) | codedna-cli | 2026-10-11 | codedna-cli | initial CodeDNA annotation pass
-message: 
-"""
 # @codedna
 # description: Isolated Audio Lab CPU worker: import, analysis, full-length mastering renders and MP3 export.
 # rules: Use server-owned paths, never modify the source, write results atomically and report JSON lines.
@@ -26,18 +18,17 @@ def report(**values):
 
 
 def main(task):
-    """Rules: Paths come from the Sonora server; analysis and mastering never overwrite the source file."""
     action = task['action']
     if action == 'analyze':
         report(phase='Lettura audio')
         audio, rate, info = dsp.read_audio(task['source'])
-        report(phase='Analysis: loudness, frequencies, stereo, tempo and key')
+        report(phase='Analisi: loudness, frequenze, stereo, tempo e tonalità')
         report(done=True, analysis=dsp.analyze(audio, rate, info))
     elif action == 'import':
         report(phase='Decodifica del file')
         audio, rate, info = dsp.read_audio(task['source'])
         dsp.write_flac(task['outputFile'], audio, rate)
-        report(phase='Analysis: loudness, frequencies, stereo, tempo and key')
+        report(phase='Analisi: loudness, frequenze, stereo, tempo e tonalità')
         report(done=True, analysis=dsp.analyze(audio, rate, info))
     elif action == 'render':
         report(phase='Lettura della sorgente')
@@ -57,7 +48,7 @@ def main(task):
         dsp.export_mp3(task['source'], task['outputFile'])
         report(done=True)
     else:
-        raise ValueError('Operazione Audio Lab non valida.')
+        raise ValueError('Invalid Audio Lab operation.')
 
 
 if __name__ == '__main__':

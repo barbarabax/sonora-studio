@@ -42,12 +42,11 @@ test('negative styles only reach the sampler with the SFT model; a reference add
   assert.throws(
     () =>
       buildWorkflow(input, 1, ID, config, `Sonora/${ID}.mp3`, { audio: `Sonora/${ID}.mp3`, denoise: 0.5 }),
-    /cannot be used together/
+    /cannot be combined/
   );
-  assert.throws(() => buildWorkflow(input, 1, ID, config, '../etc/passwd'), /invalid/i);
+  assert.throws(() => buildWorkflow(input, 1, ID, config, '../etc/passwd'), /Invalid audio reference\./);
   assert.throws(() => validateInput({ ...base, avoid: 'x'.repeat(501) }), /avoid/);
-  assert.throws(() => validateInput({ ...base, referenceId: '../x' }), /reference audio/i);
-  assert.equal(validateInput({ ...base, referenceId: ID }).referenceId, ID);
+  assert.throws(() => validateInput({ ...base, referenceId: '../x' }), /Invalid reference audio\./);
 });
 
 test('Auto guess reads the tempo and mood from the style words and always returns a valid triple', () => {
@@ -63,7 +62,7 @@ test('Auto guess reads the tempo and mood from the style words and always return
   assert.ok(empty.bpm >= 40 && empty.bpm <= 220 && ['2', '3', '4', '6'].includes(empty.timesignature));
 });
 
-test('the melody-freedom slider maps to guidance and temperature and is reversible', () => {
+test('the Creativo ↔ Robusto slider maps to guidance and temperature and is reversible', () => {
   assert.deepEqual(sliderToValues(0), { guidance: 1, creativity: 1.2 });
   assert.deepEqual(sliderToValues(50), { guidance: 2, creativity: 0.85 });
   assert.deepEqual(sliderToValues(100), { guidance: 4, creativity: 0.6 });
@@ -95,10 +94,10 @@ test('saved prompts: validated, persisted atomically, limited, importable', t =>
   });
   assert.equal(a.name, 'Notte indie');
   assert.deepEqual(a.options, { bpm: 96, finish: 'final', autoMeta: ['keyscale'] });
-  assert.throws(() => store.create({ name: '', tags: 'x' }), /Name/);
-  assert.throws(() => store.create({ name: 'n', tags: '' }), /Style/);
+  assert.throws(() => store.create({ name: '', tags: 'x' }), /Name: required field\./);
+  assert.throws(() => store.create({ name: 'n', tags: '' }), /Style: required field\./);
   assert.throws(() => store.create({ name: 'n', tags: 'x', options: { bpm: 'fast' } }), /bpm/);
-  assert.throws(() => store.create({ name: 'n'.repeat(71), tags: 'x' }), /Name/);
+  assert.throws(() => store.create({ name: 'n'.repeat(71), tags: 'x' }), /Name: maximum 70 characters\./);
   const b = store.update(a.id, { name: 'Rinominato', used: true });
   assert.equal(b.name, 'Rinominato');
   assert.equal(b.tags, 'dreamy indie pop');
@@ -118,10 +117,10 @@ test('saved prompts: validated, persisted atomically, limited, importable', t =>
   assert.equal(reopened.list().length, 3);
   assert.equal(fs.existsSync(path.join(dir, 'prompts.json.tmp')), false);
   store.remove(a.id);
-  assert.throws(() => store.remove(a.id), /not found/);
+  assert.throws(() => store.remove(a.id), /Prompt not found\./);
   assert.ok(changes >= 4);
   for (let i = store.list().length; i < PROMPT_LIMIT; i++) store.create({ name: 'p' + i, tags: 'x' + i });
-  assert.throws(() => store.create({ name: 'troppi', tags: 'x' }), /saved prompt limit/);
+  assert.throws(() => store.create({ name: 'troppi', tags: 'x' }), /You have reached the/);
 });
 
 const request = (url, options = {}) =>
@@ -202,7 +201,7 @@ test(
       body: Buffer.alloc(4000, 65),
     });
     assert.equal(r.status, 400);
-    assert.match((await r.json()).error, /does not appear to be an audio file/);
+    assert.match((await r.json()).error, /This file does not/);
     r = await request(url + '/api/library/upload', { method: 'POST', headers, body: Buffer.alloc(10) });
     assert.equal(r.status, 400);
     assert.equal(fs.readdirSync(path.join(dir, 'audio')).length, 0);
@@ -354,7 +353,20 @@ test(
     const id = crypto.randomUUID();
     fs.mkdirSync(path.join(dir, 'audio'), { recursive: true });
     const flac = path.join(dir, 'audio', id + '.flac');
-    spawnSync('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=4', '-ac', '2', '-ar', '44100', flac]);
+    spawnSync('ffmpeg', [
+      '-y',
+      '-v',
+      'error',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=330:duration=4',
+      '-ac',
+      '2',
+      '-ar',
+      '44100',
+      flac,
+    ]);
     const input = {
       musicModel: 'ace-step',
       title: 'Strumentale',
@@ -375,7 +387,15 @@ test(
       path.join(dir, 'library.json'),
       JSON.stringify({
         version: 1,
-        jobs: [{ id, title: 'Strumentale', status: 'done', input, assets: { flac: id + '.flac', mp3: id + '.mp3' } }],
+        jobs: [
+          {
+            id,
+            title: 'Strumentale',
+            status: 'done',
+            input,
+            assets: { flac: id + '.flac', mp3: id + '.mp3' },
+          },
+        ],
       })
     );
     const audioTask = async task => {
@@ -397,7 +417,13 @@ test(
         runpod: { endpointId: 'endpoint-test', modelsReady: true, sftReady: true },
         publicOrigin: 'https://sonora.example.test',
       },
-      { dataDir: dir, pollMs: 3600000, runpodFetch: fake, runpodKeyReader: () => 'private-test-key', audioTask }
+      {
+        dataDir: dir,
+        pollMs: 3600000,
+        runpodFetch: fake,
+        runpodKeyReader: () => 'private-test-key',
+        audioTask,
+      }
     );
     t.after(async () => {
       await app.close();

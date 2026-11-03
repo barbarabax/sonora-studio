@@ -14,21 +14,15 @@
 //
 //
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: audioPython
-// used_by: sonora-studio/audio-editor.mjs
-//                   sonora-studio/audio-lab.mjs
-//                   sonora-studio/audio-tests.mjs
-//                   sonora-studio/stems.mjs
+// used_by: audio-editor.mjs
+//                   audio-lab.mjs
+//                   audio-tests.mjs
+//                   stems.mjs
 // rules:   Use the configured runtime only; never install packages during requests.
 // agent:   Codex - 2026-10-05 - Linux audio runtime support.
 import path from 'node:path';

@@ -1,11 +1,3 @@
-"""test/audio_lab_dsp_test.py — audio_lab_dsp_test module.
-
-exports: RATE | music(seconds, seed) | progression(chords, seconds_per_chord, total, rate) | class KeyEstimate | class MasteringChain | class BrowserParity | class Analysis | class Files
-used_by: none
-rules:   none
-agent:   codedna-cli (no-llm) | codedna-cli | 2026-10-11 | codedna-cli | initial CodeDNA annotation pass
-message: 
-"""
 # @codedna
 # description: Audio Lab DSP regressions on synthetic signals: channels, length, loudness, true peak, timing.
 # rules: Synthetic audio only; no network, GPU or library files.
@@ -54,7 +46,6 @@ def progression(chords, seconds_per_chord=2.0, total=24, rate=22050):
 
 class KeyEstimate(unittest.TestCase):
     def test_i_iv_v_in_c_major_is_c_major_not_e_minor(self):
-        """Rules: A I-IV-V progression in C must be detected as C major, never as its relative minor."""
         c, f, g = [60, 64, 67], [65, 69, 72], [67, 71, 74]
         result = dsp.musical_features(progression([c, f, g, c]), 22050)
         self.assertEqual(result['key'], 'C major')

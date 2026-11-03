@@ -1,19 +1,13 @@
 // @codedna
 // description: Studio-grade dynamics and modulation effects (compressor, distortion, wah, envelope filter, chorus, flanger) as one sample-accurate processor shared by the browser worklet and the Node export.
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: createFxProcessor
-// used_by: sonora-studio/public/fx-worklet.js
-//                   sonora-studio/stems.mjs
+// used_by: public/fx-worklet.js
+//                   stems.mjs
 // rules:   The SAME code runs in the AudioWorklet (preview) and in Node (export), so every algorithm must be deterministic, per-sample, independent of the block size, and must not touch DOM or Web Audio APIs. Time constants are in milliseconds/Hz and converted with the sample rate. Order: compressor → distortion → wah → envelope filter → chorus → flanger → delay.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_dsp | Log-domain soft-knee compressor with decoupled ballistics and side-chain high-pass, 2x-oversampled distortion, TPT state-variable wah/envelope filters, Hermite-interpolated chorus/flanger.
 import { normalizeFx, delayMs } from './fx.mjs';

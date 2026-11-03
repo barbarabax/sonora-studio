@@ -1,31 +1,11 @@
-"""audio_lab_dsp.py — Mastering DSP for Sonora Audio Lab.
-
-Adapted from Barichord Audio Lab (E:/audio-lab/barichord-audio-lab,
-audio_mastering_tool.py and audio_analyzer.py), MIT License,
-Copyright (c) 2025 geeknik. See integrations/audio-lab.json.
-
-Changes from the original: BS.1770 integrated loudness and oversampled true
-peak in the analysis (no RMS approximation), causal reverb (the original
-'same' convolution played the reverb before the dry sound), stereo-linked
-compressor, a limiter that does not fade in the start of the track, a single
-processing order for every render and bounded memory for long files.
-
-exports: VERSION | MAX_SECONDS | EQ_BANDS | DEFAULTS | RANGES | COMPRESSORS | REVERBS | HIGH_PASS_HZ | BUTTERWORTH_Q | gain(db_value) | to_db(linear) | rounded(value, digits) | validate(settings) | probe(filename) | read_audio(filename) | write_flac(filename, audio, rate, tags_from) | copy_tags(source, target) | export_mp3(source, target, keep_metadata) | peak_envelope(audio, oversample, block, pad) | true_peak_db(audio) | (+17 more)
-used_by: audio_lab_worker.py
-         test/audio_lab_dsp_test.py
-rules:   none
-agent:   codedna-cli (no-llm) | codedna-cli | 2026-10-11 | codedna-cli | initial CodeDNA annotation pass
-message: 
-"""
 # @codedna
 # description: Audio Lab measurement and mastering chain adapted from Barichord Audio Lab (MIT).
 # rules: Channels-first float32 arrays; one processing order for every render; measure the result, never assume it.
 # agent: Claude - 2026-10-04 - Audio Lab integration for Sonora.
 """Mastering DSP for Sonora Audio Lab.
 
-Adapted from Barichord Audio Lab (E:/audio-lab/barichord-audio-lab,
-audio_mastering_tool.py and audio_analyzer.py), MIT License,
-Copyright (c) 2025 geeknik. See integrations/audio-lab.json.
+Adapted from Barichord Audio Lab (audio_mastering_tool.py and audio_analyzer.py),
+MIT License, Copyright (c) 2025 geeknik. See THIRD_PARTY_NOTICES.md.
 
 Changes from the original: BS.1770 integrated loudness and oversampled true
 peak in the analysis (no RMS approximation), causal reverb (the original
@@ -80,25 +60,24 @@ def rounded(value, digits=1):
 
 
 def validate(settings):
-    """Rules: Reject out-of-range settings before any audio is processed; never clamp silently."""
     result = {}
     eq = settings.get('eq', DEFAULTS['eq'])
     if not isinstance(eq, list) or len(eq) != len(EQ_BANDS) or any(
             isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or abs(v) > EQ_RANGE for v in eq):
-        raise ValueError('Impostazione eq non valida.')
+        raise ValueError('Invalid eq setting.')
     result['eq'] = [float(v) for v in eq]
     if settings.get('metadata', 'keep') not in ('keep', 'strip'):
-        raise ValueError('Impostazione metadata non valida.')
+        raise ValueError('Invalid metadata setting.')
     result['metadata'] = settings.get('metadata', 'keep')
     for key, (low, high) in RANGES.items():
         value = settings.get(key, DEFAULTS[key])
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
-            raise ValueError(f'Impostazione {key} non valida.')
+            raise ValueError(f'Setting {key} is not valid.')
         result[key] = float(value)
     for key, options in (('compressor', COMPRESSORS), ('reverb', REVERBS)):
         value = settings.get(key, DEFAULTS[key])
         if value != 'off' and value not in options:
-            raise ValueError(f'Impostazione {key} non valida.')
+            raise ValueError(f'Setting {key} is not valid.')
         result[key] = value
     return result
 
@@ -110,15 +89,15 @@ def probe(filename):
                              'stream=sample_rate,channels,codec_name,bits_per_raw_sample,bits_per_sample,sample_fmt:format=duration:format_tags=title,artist,album',
                              '-of', 'json', str(filename)], capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
-        raise ValueError('Formato audio non riconosciuto.')
+        raise ValueError('Audio format not recognised.')
     data = json.loads(result.stdout)
     streams = data.get('streams') or []
     if not streams:
-        raise ValueError('Il file non contiene una traccia audio.')
+        raise ValueError('The file contains no audio track.')
     stream = streams[0]
     duration = float(data.get('format', {}).get('duration') or 0)
     if not math.isfinite(duration) or duration <= 0 or duration > MAX_SECONDS:
-        raise ValueError('Choose a valid audio file of up to 10 minutes.')
+        raise ValueError('Scegli un audio valido di massimo 10 minuti.')
     bits = int(stream.get('bits_per_raw_sample') or stream.get('bits_per_sample') or 0) or None
     tags = {k.lower(): str(v)[:200] for k, v in (data.get('format', {}).get('tags') or {}).items() if k.lower() in ('title', 'artist', 'album')}
     return {'sampleRate': int(stream['sample_rate']), 'channels': int(stream.get('channels') or 0),
@@ -132,10 +111,10 @@ def read_audio(filename):
     decoded = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(filename), '-vn', '-ac', '2', '-ar', str(rate),
                               '-f', 'f32le', 'pipe:1'], capture_output=True, timeout=300)
     if decoded.returncode != 0:
-        raise ValueError('Could not decode the audio.')
+        raise ValueError('Cannot decode the audio.')
     audio = np.frombuffer(decoded.stdout, dtype='<f4').reshape(-1, 2).T.copy()
     if audio.shape[1] < rate // 2 or not np.isfinite(audio).all():
-        raise ValueError('Audio vuoto, troppo breve o non valido.')
+        raise ValueError('Audio empty, too short or invalid.')
     return audio, rate, info
 
 
@@ -172,7 +151,7 @@ def export_mp3(source, target, keep_metadata=True):
                              '-b:a', '320k', '-id3v2_version', '3', str(temp)], capture_output=True, text=True, timeout=300)
     if result.returncode != 0 or not temp.exists() or temp.stat().st_size < 1024:
         temp.unlink(missing_ok=True)
-        raise ValueError('Esportazione MP3 non riuscita: verifica FFmpeg.')
+        raise ValueError('MP3 export failed: check FFmpeg.')
     os.replace(temp, target)
 
 
@@ -459,7 +438,7 @@ def master(audio, rate, settings, progress=lambda phase: None):
         audio = limit(audio * gain(step), rate, ceiling)
         passes += 1
     if not np.isfinite(audio).all():
-        raise ValueError('Il master contiene campioni non validi.')
+        raise ValueError('The master contains invalid samples.')
     reached = integrated_lufs(audio, rate)
     return audio, {'target': target, 'reached': rounded(reached), 'gap': rounded(reached - target) if reached is not None else None,
                    'ceiling': ceiling, 'truePeak': rounded(true_peak_db(audio)), 'gain': rounded(applied), 'passes': passes}

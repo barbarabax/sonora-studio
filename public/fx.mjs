@@ -1,21 +1,15 @@
 // @codedna
 // description: Shared definition of the per-track effects (EQ, filters, saturation, stereo width, echo, reverb) used by the mixer preview and the server mixdown.
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: FX_DEFAULT | NOTES | delayMs | DSP_BLOCKS | ROOMS | normalizeFx | fxActive | dspActive | echoTaps | saturationCurve | widthMatrix | reverbImpulse | verbMix
-// used_by: sonora-studio/public/dsp-fx.mjs
-//                   sonora-studio/public/mixer-ui.mjs
-//                   sonora-studio/public/timeline-ui.mjs
-//                   sonora-studio/stems.mjs
+// used_by: public/dsp-fx.mjs
+//                   public/mixer-ui.mjs
+//                   public/timeline-ui.mjs
+//                   stems.mjs
 // rules:   Pure functions only (runs in the browser and in Node). The preview (Web Audio) and the export (ffmpeg) must apply the same effects in the same order: EQ → high/low-pass → saturation → stereo width → echo → reverb. The impulse response is deterministic, so both sides convolve with the same noise.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_fx | Per-track effects with identical parameters for Web Audio and ffmpeg.
 

@@ -228,6 +228,21 @@ test('HTTP integration: two jobs, scoped cancel, recovery, downloads, persistenc
   rejectNext = true;
   const rejected = await (await req('/api/generate', 'POST', { ...input, variants: 1 })).json();
   assert.equal(rejected.jobs[0].status, 'failed');
+  // thumbs down hides the song in the Archive; restoring it clears the mark
+  await req(`/api/jobs/${first.id}`, 'PATCH', { disliked: true });
+  let liked = JSON.parse(fs.readFileSync(path.join(dir, 'library.json'))).jobs.find(j => j.id === first.id);
+  assert.deepEqual([liked.disliked, liked.archived], [true, true]);
+  await req(`/api/jobs/${first.id}`, 'PATCH', { archived: false });
+  liked = JSON.parse(fs.readFileSync(path.join(dir, 'library.json'))).jobs.find(j => j.id === first.id);
+  assert.deepEqual([liked.disliked, liked.archived], [false, false]);
+  // delete removes the song and its own files for good
+  const doomed = rejected.jobs[0].id;
+  fs.writeFileSync(path.join(dir, 'audio', doomed + '.mp3'), 'x');
+  assert.equal((await req(`/api/jobs/${doomed}`, 'DELETE')).status, 200);
+  assert.ok(!fs.existsSync(path.join(dir, 'audio', doomed + '.mp3')));
+  assert.ok(!JSON.parse(fs.readFileSync(path.join(dir, 'library.json'))).jobs.some(j => j.id === doomed));
+  assert.equal((await req(`/api/jobs/${doomed}`, 'DELETE')).status, 404);
+  assert.ok(fs.existsSync(path.join(dir, 'audio', first.id + '.flac')), 'other songs are not touched');
   const automatic = await req('/api/generate', 'POST', {
     ...input,
     variants: 1,

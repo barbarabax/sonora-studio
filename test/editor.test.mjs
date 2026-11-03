@@ -304,21 +304,21 @@ test('importing external song to editor allows separation, downloading separate 
   });
   assert.equal(baseFlac.status, 200);
   assert.equal(baseFlac.headers.get('content-type'), 'audio/flac');
-  assert.match(baseFlac.headers.get('content-disposition'), /Mio%20Brano-backing\.flac/);
+  assert.match(baseFlac.headers.get('content-disposition'), /Mio%20Brano-strumenti\.flac/);
 
   const voiceFlac = await fetch(base + `/api/editor/${session.id}/audio?kind=voice&download=1`, {
     headers: { 'X-Sonora': '1' },
   });
   assert.equal(voiceFlac.status, 200);
   assert.equal(voiceFlac.headers.get('content-type'), 'audio/flac');
-  assert.match(voiceFlac.headers.get('content-disposition'), /Mio%20Brano-vocals\.flac/);
+  assert.match(voiceFlac.headers.get('content-disposition'), /Mio%20Brano-voce\.flac/);
 
   const baseMp3 = await fetch(base + `/api/editor/${session.id}/audio?kind=base&format=mp3&download=1`, {
     headers: { 'X-Sonora': '1' },
   });
   assert.equal(baseMp3.status, 200);
   assert.equal(baseMp3.headers.get('content-type'), 'audio/mpeg');
-  assert.match(baseMp3.headers.get('content-disposition'), /Mio%20Brano-backing\.mp3/);
+  assert.match(baseMp3.headers.get('content-disposition'), /Mio%20Brano-strumenti\.mp3/);
 
   const delRes = await fetch(base + `/api/editor/${session.id}`, {
     method: 'DELETE',
@@ -352,7 +352,10 @@ test('an instrumental track can skip separation: the base is ready without the s
   assert.deepEqual(actions, ['instrumental']);
   assert.equal(s.instrumentalOnly, true);
   assert.ok(fs.existsSync(editor.media(a.id, 'base')));
-  assert.ok(fs.existsSync(editor.media(a.id, 'voice')), 'the original voice exists (silent) so mixes keep working');
+  assert.ok(
+    fs.existsSync(editor.media(a.id, 'voice')),
+    'the original voice exists (silent) so mixes keep working'
+  );
   // The normal path still runs the separator for the other track.
   await editor.separate(b.id);
   await waitFor(() => editor.snapshot().sessions.every(x => x.stems));

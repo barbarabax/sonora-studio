@@ -2,7 +2,7 @@
   "name": "sonora-studio",
   "version": "1.0.0",
   "type": "module",
-  "description": "Local-first music creation studio for ComfyUI and ACE-Step 1.5",
+  "description": "Local-first music creation studio for ComfyUI, ACE-Step 1.5 and YuE2",
   "engines": {
     "node": ">=22"
   },

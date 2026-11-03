@@ -40,6 +40,21 @@ test('portable credentials authenticate ciphertext and keep plaintext off disk',
 
 test('RunPod jobs survive restart, save verified audio, and never resubmit generation', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-remote-'));
+  const loraId = '11111111-1111-4111-8111-111111111111';
+  fs.mkdirSync(path.join(dir, 'trainer'));
+  fs.writeFileSync(
+    path.join(dir, 'trainer', 'projects.json'),
+    JSON.stringify([
+      {
+        id: loraId,
+        name: 'Test LoRA',
+        tracks: [],
+        job: { status: 'done' },
+        loraName: `sonora-${loraId}.safetensors`,
+      },
+    ])
+  );
+  const workflows = [];
   const bytes = Buffer.alloc(96, 3),
     sha256 = createHash('sha256').update(bytes).digest('hex');
   let submitted = 0,
@@ -52,6 +67,7 @@ test('RunPod jobs survive restart, save verified audio, and never resubmit gener
     if (url.endsWith('/health')) return response({ workers: { ready: 0 } });
     if (url.endsWith('/run')) {
       submitted++;
+      workflows.push(body.input.workflow);
       return response({ id: 'remote-job-12345', status: 'IN_QUEUE' });
     }
     if (url.includes('/cancel/')) {
@@ -119,10 +135,19 @@ test('RunPod jobs survive restart, save verified audio, and never resubmit gener
   r = await request(base + '/api/generate', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ title: 'Remote', tags: 'piano', instrumental: true, duration: 10, variants: 1 }),
+    body: JSON.stringify({
+      title: 'Remote',
+      tags: 'piano',
+      instrumental: true,
+      duration: 10,
+      variants: 1,
+      loraId,
+      loraScale: 0.5,
+    }),
   });
   assert.equal(r.status, 202, await r.text());
   assert.equal(submitted, 1);
+  assert.equal(workflows[0]['15'].inputs.strength_model, 0.5);
   await app.close();
   app = createStudio(config, options);
   base = await start();
@@ -130,6 +155,7 @@ test('RunPod jobs survive restart, save verified audio, and never resubmit gener
   await app.poll();
   const saved = JSON.parse(fs.readFileSync(path.join(dir, 'library.json'), 'utf8')).jobs[0];
   assert.equal(saved.status, 'done');
+  assert.equal(saved.input.loraScale, 0.5);
   assert.equal(submitted, 1);
   assert.deepEqual(fs.readFileSync(path.join(dir, 'audio', saved.assets.flac)), bytes);
   assert.equal(JSON.stringify(saved).includes('private-test-key'), false);
@@ -138,6 +164,20 @@ test('RunPod jobs survive restart, save verified audio, and never resubmit gener
   r = await request(base + '/api/jobs/' + saved.id + '/cancel', { method: 'POST', headers, body: '{}' });
   assert.equal(r.status, 200);
   assert.equal(cancelled, 0);
+  r = await request(base + '/api/generate', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      tags: 'piano',
+      instrumental: true,
+      duration: 10,
+      variants: 1,
+      loraId,
+      loraScale: 0,
+    }),
+  });
+  assert.equal(r.status, 202, await r.text());
+  assert.equal(workflows[1]['15'], undefined);
 });
 
 test('tampered RunPod downloads fail integrity checks and preserve completed originals', async t => {

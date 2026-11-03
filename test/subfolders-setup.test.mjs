@@ -18,7 +18,13 @@ const manifest = ACE_STEP_FILES.map((item, index) => ({
   size: index + 1,
   lfs: { oid: String(index + 1).padStart(64, '0') },
 }));
-const response = (value, url) => ({ ok: true, status: 200, url, headers: new Headers(), json: async () => value });
+const response = (value, url) => ({
+  ok: true,
+  status: 200,
+  url,
+  headers: new Headers(),
+  json: async () => value,
+});
 
 async function studio(t, { config, listed }) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-sub-setup-'));
@@ -30,16 +36,31 @@ async function studio(t, { config, listed }) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(value));
     };
-    if (route === '/system_stats') return send({ system: { argv: ['main.py'] }, devices: [{ name: 'Test GPU' }] });
+    if (route === '/system_stats')
+      return send({ system: { argv: ['main.py'] }, devices: [{ name: 'Test GPU' }] });
     if (route.startsWith('/object_info/')) {
       const node = route.split('/').pop();
-      return send({ [node]: { input: { required: { unet_name: [listed.model], clip_name1: [listed.encoder], clip_name2: [listed.planner], vae_name: [listed.vae] } } } });
+      return send({
+        [node]: {
+          input: {
+            required: {
+              unet_name: [listed.model],
+              clip_name1: [listed.encoder],
+              clip_name2: [listed.planner],
+              vae_name: [listed.vae],
+            },
+          },
+        },
+      });
     }
     send({});
   });
   await new Promise(resolve => comfy.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${comfy.address().port}`;
-  const app = createStudio({ ...config, port: 0, comfyUrl: url }, { dataDir, pollMs: 1e8, modelFetch: async u => response(manifest, u) });
+  const app = createStudio(
+    { ...config, port: 0, comfyUrl: url },
+    { dataDir, pollMs: 1e8, modelFetch: async u => response(manifest, u) }
+  );
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   t.after(async () => {
@@ -49,14 +70,19 @@ async function studio(t, { config, listed }) {
     fs.rmSync(root, { recursive: true, force: true });
   });
   const post = (route, body) =>
-    fetch(base + route, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Sonora': '1' }, body: JSON.stringify(body) });
+    fetch(base + route, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Sonora': '1' },
+      body: JSON.stringify(body),
+    });
   await post('/api/settings/local', { comfyUrl: url, comfyRoot: root });
   return { post, root, app };
 }
 
 test('full paths in config.json and models outside the ComfyUI folder: the check follows ComfyUI, nothing is downloaded', async t => {
   const config = {
-    model: 'A:\\StabilityMatrix\\Data\\models\\diffusion_models\\acestep\\acestep_v1.5_xl_turbo_bf16.safetensors',
+    model:
+      'A:\\StabilityMatrix\\Data\\models\\diffusion_models\\acestep\\acestep_v1.5_xl_turbo_bf16.safetensors',
     encoder: 'A:\\StabilityMatrix\\Data\\models\\text_encoders\\qwen\\qwen_0.6b_ace15.safetensors',
     planner: 'A:\\StabilityMatrix\\Data\\models\\text_encoders\\qwen\\qwen_4b_ace15.safetensors',
     vae: 'A:\\StabilityMatrix\\Data\\models\\vae\\acestep\\ace_1.5_vae.safetensors',
@@ -71,11 +97,17 @@ test('full paths in config.json and models outside the ComfyUI folder: the check
   const plan = await (await post('/api/models/plan', {})).json();
   assert.equal(plan.error, undefined);
   assert.equal(plan.files.length, 4);
-  assert.ok(plan.files.every(file => file.status === 'present'), JSON.stringify(plan.files));
+  assert.ok(
+    plan.files.every(file => file.status === 'present'),
+    JSON.stringify(plan.files)
+  );
   assert.equal(plan.totalBytes, 0);
   assert.equal(app.state?.health?.ready ?? true, true);
   // the ComfyUI folder itself stays empty: nothing was written there
-  assert.ok(!fs.existsSync(path.join(root, 'models', 'diffusion_models')) || fs.readdirSync(path.join(root, 'models', 'diffusion_models')).length === 0);
+  assert.ok(
+    !fs.existsSync(path.join(root, 'models', 'diffusion_models')) ||
+      fs.readdirSync(path.join(root, 'models', 'diffusion_models')).length === 0
+  );
   const started = await post('/api/models/download', { confirmed: true });
   assert.equal(started.status, 202);
 });
@@ -87,15 +119,26 @@ test('a relative sub-folder in the config is accepted too, and a model ComfyUI d
     planner: 'qwen/qwen_4b_ace15.safetensors',
     vae: 'acestep/ace_1.5_vae.safetensors',
   };
-  const listed = { model: ['acestep/acestep_v1.5_xl_turbo_bf16.safetensors'], encoder: ['qwen/qwen_0.6b_ace15.safetensors'], planner: [], vae: [] };
+  const listed = {
+    model: ['acestep/acestep_v1.5_xl_turbo_bf16.safetensors'],
+    encoder: ['qwen/qwen_0.6b_ace15.safetensors'],
+    planner: [],
+    vae: [],
+  };
   const { post } = await studio(t, { config, listed });
   const plan = await (await post('/api/models/plan', {})).json();
   assert.equal(plan.error, undefined);
-  assert.deepEqual(plan.files.map(file => file.status), ['present', 'present', 'missing', 'missing']);
-  assert.deepEqual(plan.files.map(file => file.name), [
-    'acestep_v1.5_xl_turbo_bf16.safetensors',
-    'qwen_0.6b_ace15.safetensors',
-    'qwen_4b_ace15.safetensors',
-    'ace_1.5_vae.safetensors',
-  ]);
+  assert.deepEqual(
+    plan.files.map(file => file.status),
+    ['present', 'present', 'missing', 'missing']
+  );
+  assert.deepEqual(
+    plan.files.map(file => file.name),
+    [
+      'acestep_v1.5_xl_turbo_bf16.safetensors',
+      'qwen_0.6b_ace15.safetensors',
+      'qwen_4b_ace15.safetensors',
+      'ace_1.5_vae.safetensors',
+    ]
+  );
 });

@@ -1,14 +1,14 @@
 // @codedna
 // description: Encrypted local storage for user-owned GPU provider API keys.
-// 
 //
-// 
 //
-// 
 //
-// 
 //
-// 
+//
+//
+//
+//
+//
 //
 // exports: createProviderSecrets
 // used_by: sonora-studio/gpu-session-watchdog.mjs
@@ -26,8 +26,7 @@ export function createProviderSecrets({ dataDir, protector } = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   const file = path.join(dataDir, 'provider-secrets.json');
   const cipher =
-    protector ||
-    createFileProtector(process.env.SONORA_SECRET_FILE || path.join(dataDir, '.credential-key'));
+    protector || createFileProtector(process.env.SONORA_SECRET_FILE || path.join(dataDir, '.credential-key'));
 
   function read() {
     if (!fs.existsSync(file)) return {};

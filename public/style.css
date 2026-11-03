@@ -2,6 +2,7 @@
  * description: Responsive, locally rendered dark music studio and audio player.
  * rules: Preserve keyboard focus visibility, mobile layout and reduced-motion support.
  * agent: Codex - 2026-10-04 - Original Sonora visual design.
+ *        Codex - 2026-10-10 - Trainer import and removal controls.
  */
 :root {
   color-scheme: dark;
@@ -3384,6 +3385,44 @@ dialog pre {
   border: 1px solid var(--line);
   border-radius: 12px;
 }
+.trainer-import {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.trainer-import h3 {
+  margin: 0;
+}
+.trainer-import p {
+  margin: 0;
+  color: var(--muted);
+}
+.trainer-import-choice {
+  display: flex !important;
+  grid-template-columns: none;
+  align-items: flex-start;
+  gap: 10px !important;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.trainer-import-choice input {
+  width: auto;
+  margin: 2px 0 0;
+  accent-color: var(--peach);
+}
+.trainer-import-choice span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trainer-import-choice small {
+  color: var(--muted);
+}
+.trainer-remove {
+  justify-self: start;
+  padding: 8px 0;
+}
 .trainer-guide {
   margin: 24px 0;
   border: 1px solid var(--line);
@@ -3445,6 +3484,19 @@ dialog pre {
   }
 }
 /* Keep Vast credential instructions readable in the sidebar. */
+#vast-controls details {
+  margin-bottom: 12px;
+}
+#vast-controls small {
+  display: block;
+  margin-top: 8px;
+}
+#vast-key-save {
+  width: 100%;
+  margin-top: 8px;
+  white-space: normal;
+}
+
 .duration-controls {
   display: flex;
   gap: 8px;
@@ -4268,4 +4320,691 @@ input.inline-time {
     flex-wrap: wrap;
     align-items: center;
   }
+}
+.rw-dice-row {
+  margin: 6px 0 10px;
+}
+
+/* ---------- YuE2: piano di melodia e accordi ---------- */
+.yue-hidden {
+  display: none !important;
+}
+.yue-panel {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.yue-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.yue-chords {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow: auto;
+  margin: 8px 0;
+}
+.yue-section strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.yue-bars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.yue-bar {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px 4px;
+  border-left: 2px solid rgba(255, 255, 255, 0.18);
+}
+input.yue-chord {
+  width: 56px;
+  padding: 4px 6px;
+  font-weight: 600;
+  text-align: center;
+}
+input.yue-chord.invalid {
+  outline: 2px solid #e5484d;
+}
+#yue-abc {
+  width: 100%;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+
+.yue-panel {
+  position: relative;
+}
+.yue-player {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0;
+}
+.yue-roll-wrap {
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+#yue-roll {
+  display: block;
+  cursor: pointer;
+}
+.yue-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #edb191;
+  pointer-events: none;
+}
+.yue-presets {
+  margin: 8px 0;
+}
+.yue-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+.yue-preset-row label {
+  min-width: 110px;
+}
+.yue-preset-row select {
+  flex: 1;
+}
+.yue-picker {
+  position: absolute;
+  z-index: 20;
+  width: min(420px, 100%);
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: #1c1c1f;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.yue-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.yue-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 10px;
+}
+.yue-pick {
+  min-width: 38px;
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.yue-pick small {
+  display: block;
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.yue-pick.selected {
+  border-color: #edb191;
+  background: rgba(237, 177, 145, 0.18);
+}
+.yue-picker-qualities .yue-pick {
+  min-width: 78px;
+}
+
+.yue-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(237, 177, 145, 0.4);
+  border-radius: 8px;
+  background: rgba(237, 177, 145, 0.08);
+  font-size: 13px;
+}
+.yue-tempo {
+  width: 72px;
+}
+.yue-parts {
+  margin: 8px 0;
+}
+.yue-cover-fit {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid rgba(237, 177, 145, 0.4);
+  border-radius: 8px;
+  background: rgba(237, 177, 145, 0.06);
+}
+.yue-cover-fit .label-line {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.yue-cover-fit-row {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.yue-part-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0;
+}
+.yue-part-row span {
+  flex: 1;
+  min-width: 160px;
+}
+.yue-legend {
+  margin: 8px 0;
+}
+.yue-legend ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.yue-legend code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: ui-monospace, Consolas, monospace;
+}
+#yue-part-text {
+  width: 100%;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+
+.yue-bars-view {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+.yue-barcard {
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+.yue-bar-title {
+  font-size: 11px;
+  opacity: 0.6;
+}
+.yue-voice-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 3px;
+}
+.yue-voice-name {
+  flex: 0 0 56px;
+  align-self: center;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.yue-chips {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+.yue-chip {
+  flex-basis: 0;
+  min-width: 36px;
+  padding: 4px 2px;
+  overflow: hidden;
+  border: 1px solid rgba(237, 177, 145, 0.4);
+  border-radius: 6px;
+  background: rgba(237, 177, 145, 0.12);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.yue-chip.rest {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: transparent;
+  opacity: 0.55;
+}
+.yue-chip.silent,
+.yue-chip.raw {
+  flex: 1;
+  cursor: default;
+  border-style: dashed;
+  background: transparent;
+  opacity: 0.5;
+}
+.yue-chip.selected {
+  border-color: #edb191;
+  background: rgba(237, 177, 145, 0.35);
+  opacity: 1;
+}
+.yue-label {
+  align-self: center;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f2e3d8;
+}
+.yue-note-editor {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid rgba(237, 177, 145, 0.5);
+  border-radius: 10px;
+  background: #1c1c1f;
+}
+.yue-ne-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.yue-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: #b7bab3;
+}
+.yue-check input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin: 0;
+  accent-color: var(--peach);
+}
+.yue-mode {
+  margin: -6px 0 22px;
+}
+.yue-mode-switch {
+  margin-bottom: 14px;
+}
+.yue-cover {
+  border: 1px solid #2d2e31;
+  border-radius: 10px;
+  padding: 14px;
+  background: #161719;
+}
+.yue-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #e0dedb;
+}
+.yue-step:first-child {
+  margin-top: 0;
+}
+.yue-step b {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  background: #363332;
+  color: #f7dacb;
+  font-size: 10px;
+}
+.yue-cover-source {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.yue-cover-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+.yue-cover-source audio {
+  width: 100%;
+  height: 34px;
+}
+.yue-cover-source .text-button {
+  justify-self: start;
+}
+
+.icon-button.danger:hover {
+  color: #ff8f80;
+}
+.pill-button.danger {
+  color: #ffb4a8;
+}
+.pill-button.danger:hover {
+  border-color: #ff8f80;
+}
+.yue-lora-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+}
+.yue-lora-group {
+  display: grid;
+  gap: 8px;
+}
+.yue-lora-group > strong {
+  font-size: 11px;
+  color: #b7bab3;
+}
+.yue-lora-row {
+  border: 1px solid #2d2e31;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.yue-lora-row.on {
+  border-color: var(--peach);
+}
+.yue-lora-row p {
+  margin: 4px 0 0;
+}
+.yue-lora-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.yue-lora-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.yue-lora-actions .yue-check {
+  margin: 0;
+}
+.yue-lora-sliders {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.yue-lora-strength {
+  display: grid;
+  grid-template-columns: 90px 1fr 36px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+}
+.rerender-row {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.rerender-row select {
+  width: auto;
+}
+.extend-panel {
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px solid #4a4845;
+  border-radius: 8px;
+}
+.extend-panel summary {
+  cursor: pointer;
+  color: #f2c5ad;
+  font-weight: 700;
+}
+.extend-panel audio,
+.extend-panel canvas {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+}
+.extend-panel canvas {
+  height: 72px;
+  border-radius: 6px;
+  cursor: crosshair;
+}
+.extend-panel form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.extend-panel form label {
+  display: grid;
+  gap: 5px;
+}
+.extend-panel input[type='range'] {
+  width: 100%;
+}
+.yue-score {
+  background: #f6f3ee;
+  border-radius: 8px;
+  padding: 6px;
+  margin: 8px 0;
+  overflow-x: auto;
+  min-height: 40px;
+  color: #111;
+}
+.yue-score svg {
+  width: 100%;
+  height: 100%;
+}
+.yue-score .abcjs-note,
+.yue-score .abcjs-rest {
+  cursor: pointer;
+}
+.yue-midi-import {
+  border: 1px solid #2d2e31;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.yue-editor-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.yue-big-dialog {
+  width: min(1400px, 96vw);
+  height: 94vh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: #151617;
+  color: #e0dedb;
+}
+.yue-big-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+.yue-big-head {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  background: #151617;
+  border-bottom: 1px solid #2d2e31;
+  font-size: 16px;
+}
+.yue-big-body {
+  position: relative;
+  padding: 16px 22px 40px;
+  font-size: 14px;
+}
+.yue-big-body .field-hint {
+  font-size: 13px;
+}
+.yue-big-body .yue-roll-wrap {
+  max-height: none;
+}
+.yue-big-body input.yue-chord {
+  font-size: 15px;
+  padding: 8px 10px;
+  min-width: 70px;
+}
+.yue-big-body .yue-chip {
+  font-size: 14px;
+  min-height: 34px;
+}
+.yue-big-body summary {
+  font-size: 15px;
+}
+
+.yue-score .score-playing {
+  fill: #e0662f;
+  stroke: #e0662f;
+}
+
+/* Composition gets priority over navigation and the library. */
+@media (min-width: 981px) {
+  :root {
+    --sidebar: 200px;
+  }
+  .sidebar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .composer {
+    flex: 0 0 clamp(480px, 43vw, 720px);
+    width: clamp(480px, 43vw, 720px);
+    padding: 28px;
+  }
+  .nav-button {
+    font-size: 11px;
+  }
+  .stage {
+    min-width: 0;
+    padding: 26px;
+  }
+}
+@media (min-width: 701px) and (max-width: 980px) {
+  .composer {
+    flex-basis: 54%;
+    width: 54%;
+    min-width: 350px;
+  }
+}
+.yue-simple-card {
+  padding: 16px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff03;
+}
+.yue-basic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.yue-basic-grid label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+}
+.yue-basic-grid select,
+.yue-basic-grid input {
+  width: 100%;
+  min-width: 0;
+}
+.yue-progression {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+.yue-progression label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.yue-progression select,
+.yue-progression input {
+  width: 100%;
+  min-width: 0;
+}
+#yue-melody-freedom {
+  width: 100%;
+  margin-top: 10px;
+}
+#yue-simple .field-hint {
+  line-height: 1.6;
+}
+#yue-advanced > summary {
+  padding: 10px 0;
+}
+@media (max-width: 480px) {
+  .yue-basic-grid {
+    grid-template-columns: 1fr;
+  }
+  .yue-simple-card {
+    padding: 12px;
+  }
+}
+.setup-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.setup-item {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.setup-item b {
+  font-weight: 700;
+}
+.setup-item.ok b {
+  color: #8fd19e;
+}
+.setup-item.warn b {
+  color: #e6c36a;
+}
+.setup-item.missing b {
+  color: #ef8a80;
+}
+.setup-item small {
+  display: block;
+  margin-top: 2px;
+  color: #bdb8af;
 }

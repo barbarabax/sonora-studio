@@ -2,7 +2,7 @@
 // description: AudioWorklet that runs the shared effects processor (compressor, distortion, wah, envelope filter, chorus, flanger) in the mixer preview.
 //
 // exports: none
-// used_by: none
+// used_by: public/mixer-ui.mjs
 // rules:   Contains no DSP of its own: everything comes from dsp-fx.mjs, the same module the server uses for the export, so preview and export match.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_dsp | Thin wrapper with parameter messages and a gain-reduction meter.
 import { createFxProcessor } from './dsp-fx.mjs';

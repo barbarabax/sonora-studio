@@ -1,23 +1,17 @@
 // @codedna
 // description: Six-stem mixer: separate a song, balance each instrument in real time and export the mix as a new song.
 //
-// 
-//
-// 
-//
-// 
-//
 // exports: initStemMixer
-// used_by: sonora-studio/public/app.js
+// used_by: public/app.js
 // rules:   Escape stored titles; never autoplay; the browser graph (gain, balance pan, solo/mute, safety compressor) must stay equivalent to stemMixFilter in stems.mjs.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-09 | s_20261009_stems | Mixer a stem with live Web Audio preview of 160k MP3 stems and FLAC export through the server.
 const NAMES = {
-  vocals: ['V', 'Voice'],
-  drums: ['D', 'Batteria'],
-  bass: ['B', 'Basso'],
-  guitar: ['G', 'Chitarra'],
+  vocals: ['V', 'Vocals'],
+  drums: ['D', 'Drums'],
+  bass: ['B', 'Bass'],
+  guitar: ['G', 'Guitar'],
   piano: ['P', 'Piano'],
-  other: ['A', 'Altro (tastiere, archi, effetti)'],
+  other: ['A', 'Other (keys, strings, effects)'],
 };
 const ORDER = Object.keys(NAMES);
 const blank = () => ({ gain: 1, pan: 0, mute: false, solo: false });
@@ -42,22 +36,23 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
     );
   const time = s => `${Math.floor((s || 0) / 60)}:${String(Math.floor((s || 0) % 60)).padStart(2, '0')}`;
-  panel.innerHTML = `<div class="editor-heading"><div><div class="section-eyebrow">04 / MIX</div><h1>Every instrument in its place.</h1><p>Split a track into vocals, drums, bass, guitar, piano and other stems. Adjust each level, mute a stem, and save the result as a new track. The original stays unchanged.</p></div></div>
-    <div class="editor-source"><label for="mix-track">Track</label><div class="editor-source-row"><select id="mix-track"><option value="">Choose a completed track</option></select><button id="mix-separate" class="pill-button" disabled>Split into stems</button></div><p id="mix-status" class="field-hint">Separation takes about 1–2 minutes per minute of audio and runs only once.</p></div>
+  panel.innerHTML = `<div class="editor-heading"><div><div class="section-eyebrow">04 / BALANCE</div><h1>Every instrument in its place.</h1><p>Split a song into vocals, drums, bass, guitar, piano and the rest. Raise or lower each instrument, mute one, then save the result as a new song: the original does not change.</p></div></div>
+    <div class="editor-source"><label for="mix-track">Song</label><div class="editor-source-row"><select id="mix-track"><option value="">Choose a finished song</option></select><button id="mix-separate" class="pill-button" disabled>Split into instruments</button></div><p id="mix-status" class="field-hint">Separation takes about 1–2 minutes for every minute of song and is only done once.</p></div>
+    <div class="editor-source"><label for="mix-import-title">Already have the stems?</label><p class="field-hint">Import up to six already aligned audio files, assign each to an instrument and open the mixer straight away. It also accepts two or four stems; missing instruments do not appear.</p><div class="editor-source-row"><input id="mix-import-title" maxlength="100" placeholder="Song title" aria-label="Title for the imported stems"><input id="mix-import-files" type="file" multiple accept="audio/*,.wav,.mp3,.flac,.m4a,.ogg,.aac" aria-label="Select the stems"></div><div id="mix-import-map"></div><div class="editor-source-row"><button id="mix-import-go" class="pill-button" disabled>Import stems into the mixer</button><span id="mix-import-progress" class="field-hint" aria-live="polite"></span></div></div>
     <div id="mix-workspace" hidden>
-      <div class="editor-timeline"><button id="mix-play" class="pill-button">▶ Listen</button><span id="mix-elapsed">0:00</span><input id="mix-seek" type="range" min="0" max="1000" value="0" aria-label="Posizione"><span id="mix-total">0:00</span></div>
+      <div class="editor-timeline"><button id="mix-play" class="pill-button">▶ Listen</button><span id="mix-elapsed">0:00</span><input id="mix-seek" type="range" min="0" max="1000" value="0" aria-label="Position"><span id="mix-total">0:00</span></div>
       <div class="stem-track timeline-card"><div class="stem-head"><div><span class="stem-mark">⏱</span><strong>Timeline</strong></div></div><div id="mix-timeline"></div></div>
       <div class="stem-track ext-card"><div class="stem-head"><div><span class="stem-mark">🎙</span><strong>External audio: import or record</strong></div></div>
         <div class="ext-row"><button id="ext-import" class="pill-button">Import audio…</button><input id="ext-file" type="file" accept="audio/*,.wav,.mp3,.flac,.m4a,.ogg,.aac" hidden>
-          <label>Ingresso <select id="rec-device"><option value="">Predefinito</option></select></label>
-          <label>Canali <select id="rec-channels"><option value="1">Ingresso 1 (mono)</option><option value="2">Ingresso 2 (mono)</option><option value="12">Ingressi 1+2 (stereo)</option><option value="3">Ingresso 3 (mono)</option><option value="4">Ingresso 4 (mono)</option><option value="34">Ingressi 3+4 (stereo)</option></select></label>
-          <button id="rec-go" class="pill-button">● Registra</button><span id="rec-state" class="field-hint" aria-live="polite"></span></div>
+          <label>Input <select id="rec-device"><option value="">Default</option></select></label>
+          <label>Channels <select id="rec-channels"><option value="1">Input 1 (mono)</option><option value="2">Input 2 (mono)</option><option value="12">Inputs 1+2 (stereo)</option><option value="3">Input 3 (mono)</option><option value="4">Input 4 (mono)</option><option value="34">Inputs 3+4 (stereo)</option></select></label>
+          <button id="rec-go" class="pill-button">● Record</button><span id="rec-state" class="field-hint" aria-live="polite"></span></div>
         <div class="rec-level" hidden><i id="rec-level"></i></div>
-        <label class="check"><input type="checkbox" id="rec-monitor"> Monitor yourself while recording (use headphones to prevent feedback)</label>
-        <p class="field-hint">Record starts at the playhead, plays the track through your headphones and records to the selected timeline track, or creates a new one. The recording stays dry; track FX are applied afterward and remain editable. If it is slightly out of time, use track FX → Shift. With an audio interface, select it as the input and choose the correct channels (usually input 1 is the microphone and 2 is the instrument). For zero-latency monitoring, use the interface’s direct monitor and leave the checkbox above off. Turn it on only to hear the track effects.</p></div>
-      <div class="editor-replace" id="mix-ai"><div class="section-eyebrow">ADD AN INSTRUMENT</div><h2>Let AI play it.</h2><p>Describe the instrument to add (for example, “warm, slow cello” or “clean electric guitar arpeggios”). AI starts from the instrumental, so the new part follows the track timing and harmony. It appears as a new track to mix.</p><label for="mix-ai-instrument">Which instrument?</label><input id="mix-ai-instrument" maxlength="120" placeholder="e.g. warm cello, long notes"><label for="mix-ai-strength">AI freedom: <output id="mix-ai-strength-label">85%</output></label><input id="mix-ai-strength" type="range" min="50" max="95" step="5" value="85"><p class="field-hint">Lower follows the backing more closely but makes the new part quieter. Higher makes it louder and freer.</p><label for="mix-ai-finish">Quality</label><select id="mix-ai-finish"><option value="fast">Fast (Turbo)</option><option value="final">Final (SFT, slower)</option></select><p id="mix-ai-range" class="field-hint"></p><button id="mix-ai-go" class="pill-button">Generate instrument</button><p id="mix-ai-status" class="field-hint" aria-live="polite"></p></div>
-      <div class="editor-export"><button id="mix-export" class="pill-button">Save mix as a new track</button><button id="mix-reset" class="text-button">Reset adjustments</button></div>
-      <p class="editor-note">Separation is not perfect: dense tracks can leave some of one instrument in another stem. Lowering a stem often sounds better than removing it entirely.</p>
+        <label class="check"><input type="checkbox" id="rec-monitor"> Hear myself while recording (use headphones, otherwise you will hear feedback)</label>
+        <p class="field-hint">«Record» starts from the listening point, plays the song in your headphones and records onto a track: the one you chose in the timeline, if it is your own track, or a new one. The recording stays clean: the track's effects (FX menu) are applied on top and you can change them afterwards. If it is a little out of time, use «Offset» in the track's FX. With an audio interface: choose the interface as the input and the right channels (usually input 1 is the microphone and 2 the instrument). To hear yourself without delay use the interface's direct monitoring and leave the box above off; turn it on only if you want to hear yourself through the track's effects.</p></div>
+      <div class="editor-replace" id="mix-ai"><div class="section-eyebrow">ADD AN INSTRUMENT</div><h2>Let AI play it.</h2><p>Describe the instrument to add (for example “warm, slow cello” or “clean electric guitar, arpeggios”). The AI starts from the backing of the song without the voice, so the new instrument stays in time and in the same harmony. It appears as a new track to balance.</p><label for="mix-ai-instrument">Which instrument?</label><input id="mix-ai-instrument" maxlength="120" placeholder="E.g. warm cello, long notes"><label for="mix-ai-strength">AI freedom: <output id="mix-ai-strength-label">85%</output></label><input id="mix-ai-strength" type="range" min="50" max="95" step="5" value="85"><p class="field-hint">Lower = follows the backing closely, but the new instrument is less audible. Higher = more present and freer.</p><label for="mix-ai-finish">Quality</label><select id="mix-ai-finish"><option value="fast">Fast (Turbo)</option><option value="final">Final (SFT, slower)</option></select><p id="mix-ai-range" class="field-hint"></p><button id="mix-ai-go" class="pill-button">Generate the instrument</button><p id="mix-ai-status" class="field-hint" aria-live="polite"></p></div>
+      <div class="editor-export"><button id="mix-export" class="pill-button">Save the mix as a new song</button><button id="mix-reset" class="text-button">Reset the settings</button></div>
+      <p class="editor-note" id="mix-separation-note">Separation is not perfect: in very dense songs a bit of one instrument may remain in another. Lowering a single instrument works better than removing it completely.</p>
     </div>`;
   const $ = id => panel.querySelector('#' + id);
   let state = {},
@@ -73,7 +68,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     position = 0,
     startedAt = 0,
     timer = null;
-  /** The cuts as they sound: every track's «Shift» (ms) nudges its clips in time; what falls before 0 is trimmed. */
+  /** The cuts as they sound: every track's «Slittamento» (ms) nudges its clips in time; what falls before 0 is trimmed. */
   function playbackClips() {
     const out = {};
     for (const [name, list] of Object.entries(timeline.clips())) {
@@ -99,7 +94,11 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   const layers = () => session()?.layers || [];
   let lanes = []; // custom empty tracks of the current song: [{ id: 'lane-xxxx', name }]
   const isLane = name => name.startsWith('lane-');
-  const keys = () => [...ORDER, ...layers().map(l => l.id), ...lanes.map(l => l.id)];
+  const keys = () => [
+    ...(session()?.imported ? session().stems : ORDER),
+    ...layers().map(l => l.id),
+    ...lanes.map(l => l.id),
+  ];
   const isSource = name => !isLane(name);
   const lanesKey = id => 'sonora-lanes-' + id;
   function saveLanes() {
@@ -111,13 +110,13 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   const label = name =>
     NAMES[name]
       ? NAMES[name][1]
-      : lanes.find(l => l.id === name)?.name ||
-        layers().find(l => l.id === name)?.name ||
-        'Tool aggiunto';
+      : lanes.find(l => l.id === name)?.name || layers().find(l => l.id === name)?.name || 'Instrument added';
   const mark = name => (NAMES[name] ? NAMES[name][0] : '+');
   let loading = false,
     paintedGrid = '',
     paintedKey = '';
+  let importFiles = [],
+    importing = false;
   const storeKey = id => 'sonora-mixer-' + id;
   function saveSettings() {
     try {
@@ -132,6 +131,40 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     } catch {}
   }
   const session = () => (state.stems?.sessions || []).find(s => s.id === selected);
+  const remainingSlots = () => ORDER.filter(n => !session()?.stems?.includes(n));
+  function renderImportMap() {
+    const holder = $('mix-import-map');
+    const draft = session()?.imported && session()?.status === 'importing' ? session() : null;
+    const available = draft ? remainingSlots() : ORDER;
+    const used = new Set();
+    holder.innerHTML =
+      (draft?.stems?.length
+        ? `<p class="field-hint">Already loaded: ${draft.stems.map(n => `${esc(NAMES[n][1])} <button class="text-button" data-remove-stem="${n}" type="button" aria-label="Remove ${esc(NAMES[n][1])}">Remove</button>`).join(' · ')}.</p>`
+        : '') +
+      importFiles
+        .map((file, i) => {
+          const lower = file.name.toLowerCase();
+          const match = /vocal|voice|voce|singer/.test(lower)
+            ? 'vocals'
+            : /drum|percu|batter|kick/.test(lower)
+              ? 'drums'
+              : /bass|basso/.test(lower)
+                ? 'bass'
+                : /guitar|chitar/.test(lower)
+                  ? 'guitar'
+                  : /piano|keys|keyboard/.test(lower)
+                    ? 'piano'
+                    : 'other';
+          const slot = available.find(n => n === match && !used.has(n)) || available.find(n => !used.has(n));
+          if (slot) used.add(slot);
+          return `<div class="editor-source-row"><span>${esc(file.name)}</span><label>Instrument <select class="mix-import-slot" data-index="${i}">${available.map(n => `<option value="${n}"${n === slot ? ' selected' : ''}>${esc(NAMES[n][1])}</option>`).join('')}</select></label></div>`;
+        })
+        .join('');
+    $('mix-import-go').disabled = importing || (!importFiles.length && !draft?.stems?.length);
+    $('mix-import-files').disabled = importing || (draft && !available.length);
+    $('mix-import-go').textContent =
+      draft && !importFiles.length ? 'Finish import' : 'Import stems into the mixer';
+  }
   const clipsKey = id => 'sonora-clips-' + id;
   function saveClips() {
     try {
@@ -145,6 +178,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     buffer: name => buffers[name],
     total: () => duration(),
     grid: () => session()?.grid || null,
+    gridMessage: () => (session()?.imported ? 'Tempo not detected' : 'Analysing tempo…'),
     beatsPerBar: () => {
       const n = Number(state.jobs?.find(j => j.id === selected)?.input?.timesignature || 4);
       return n === 6 ? 6 : n || 4;
@@ -231,15 +265,15 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   async function importFile(file) {
     if (!selected || !file) return;
     if (file.size > 150 * 1024 * 1024)
-      return toast('File exceeds 150 MB. Compress it (MP3 or FLAC) or trim it.');
+      return toast('The file exceeds 150 MB: compress it (MP3 or FLAC) or shorten it.');
     $('rec-state').textContent = `Uploading «${file.name}»…`;
     try {
-      const name = file.name.replace(/\.[^.]+$/, '') || 'Audio importato';
+      const name = file.name.replace(/\.[^.]+$/, '') || 'Audio imported';
       const entry = await uploadExternal(file, name, 'import');
       const lane = makeLane(name);
       await onExported?.();
       if (lane) placeExternal(lane, entry, position);
-      toast(`«${name}» imported to a new track at the playhead.`);
+      toast(`«${name}» imported onto a new track, from the listening point.`);
     } catch (e) {
       toast(e.message);
     } finally {
@@ -252,12 +286,10 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
         chosen = select.value;
       const inputs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
       select.innerHTML =
-        '<option value="">Predefinito</option>' +
+        '<option value="">Default</option>' +
         inputs
           .filter(d => d.deviceId && d.deviceId !== 'default')
-          .map(
-            (d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Ingresso ' + (i + 1))}</option>`
-          )
+          .map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Input ' + (i + 1))}</option>`)
           .join('');
       select.value = [...select.options].some(o => o.value === chosen) ? chosen : '';
     } catch {}
@@ -265,13 +297,13 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   let recording = null,
     recReady = false;
   async function startRecording() {
-    if (!selected || !Object.keys(buffers).length) return toast('Open a separated track first.');
-    if (!navigator.mediaDevices?.getUserMidsa)
-      return toast('This browser cannot record audio; a secure HTTPS connection is required.');
+    if (!selected || !Object.keys(buffers).length) return toast('Open a separated song first.');
+    if (!navigator.mediaDevices?.getUserMedia)
+      return toast('This browser cannot record (a secure https connection is needed).');
     let stream;
     try {
       const deviceId = $('rec-device').value;
-      stream = await navigator.mediaDevices.getUserMidsa({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
           echoCancellation: false,
@@ -283,8 +315,8 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     } catch (e) {
       return toast(
         e?.name === 'NotAllowedError'
-          ? 'The browser cannot access the microphone. Allow access from the icon beside the address bar.'
-          : `Ingresso audio unavailable (${e?.name || e}).`
+          ? 'The browser does not have permission to use the microphone: allow it from the icon next to the address.'
+          : `Audio input not available (${e?.name || e}).`
       );
     }
     void refreshDevices();
@@ -304,7 +336,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
         .map(n => Number(n) - 1);
       if (picked.some(i => i >= available))
         throw new Error(
-          `The selected input does not exist. This device has ${available} inputs; choose another channel.`
+          `The chosen input does not exist: this device has ${available}. Choose another channel.`
         );
       try {
         localStorage.setItem(
@@ -315,8 +347,8 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       // Record on the track chosen in the timeline when it is one of yours, otherwise on a new one.
       let lane = timeline.currentLane();
       if (!lane || !isLane(lane)) lane = makeLane(`Recording ${lanes.length + 1}`);
-      if (!lane) throw new Error('No tracks are available.');
-      const source = ctx.createMidsaStreamSource(stream),
+      if (!lane) throw new Error('No track available.');
+      const source = ctx.createMediaStreamSource(stream),
         node = new AudioWorkletNode(ctx, 'sonora-rec', {
           numberOfInputs: 1,
           numberOfOutputs: 1,
@@ -384,7 +416,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     } catch (e) {
       stream.getTracks().forEach(t => t.stop());
       recording = null;
-      toast(e?.message || 'Recording could not be started.');
+      toast(e?.message || 'Recording not started.');
     }
   }
   /** 16-bit PCM WAV of one or two channels. */
@@ -425,7 +457,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     }
     r.stream.getTracks().forEach(t => t.stop());
     pause();
-    $('rec-go').textContent = '● Registra';
+    $('rec-go').textContent = '● Record';
     panel.querySelector('.rec-level').hidden = true;
     $('rec-level').style.width = '0';
     if (!save) return void ($('rec-state').textContent = '');
@@ -437,7 +469,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     const skip = Math.max(0, Math.round((r.when + correction - r.first) * rate));
     if (!r.first || skip >= total - rate * 0.2) {
       $('rec-state').textContent = '';
-      return toast('Recording is too short; nothing was saved.');
+      return toast('Recording too short: nothing was saved.');
     }
     const left = new Float32Array(total - skip),
       right = r.picked.length > 1 ? new Float32Array(total - skip) : null;
@@ -449,13 +481,13 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
         if (right) right[at - skip] = c[1][i];
       }
     }
-    $('rec-state').textContent = 'Saving recording…';
+    $('rec-state').textContent = 'Saving the recording…';
     try {
       const stamp = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const entry = await uploadExternal(wavBlob(left, right, rate), `Recording ${stamp}`, 'rec');
       await onExported?.();
       placeExternal(r.lane, entry, r.startPosition);
-      toast('Recording saved to the track, starting where you selected Record.');
+      toast('Recording saved on the track, starting from where you pressed Record.');
     } catch (e) {
       toast(e.message);
     } finally {
@@ -467,12 +499,12 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   /** Tells whether the next AI instrument is for the whole song or only for the section highlighted on the timeline. */
   function paintAiRange(range = timeline.selection()) {
     $('mix-ai-range').textContent = range
-      ? `The instrument will be generated only for the selected section: ${mmss(range.a)} – ${mmss(range.b)}. The rest of the track will be silent.`
-      : 'The instrument will be generated for the whole track. To generate only one section, drag across the timeline ruler to select it.';
-    $('mix-ai-go').textContent = range ? 'Generate only for the selected section' : 'Generate instrument';
+      ? `The instrument will only be generated for the highlighted part: ${mmss(range.a)} – ${mmss(range.b)}. Outside it there will be silence.`
+      : 'The instrument will be generated for the whole song. For a single part (for example the strings in the chorus) drag on the timeline ruler to highlight it.';
+    $('mix-ai-go').textContent = range ? 'Generate only for the highlighted part' : 'Generate the instrument';
   }
   async function removeLayerById(id) {
-    if (!confirm(`Delete the instrument «${label(id)}» dal mixer?`)) return;
+    if (!confirm(`Remove the instrument «${label(id)}» from the mixer?`)) return;
     try {
       await api(`/api/stems/${selected}/layer/${id}`, 'DELETE');
       delete buffers[id];
@@ -480,7 +512,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       saveClips();
       delete settings[id];
       saveSettings();
-      toast('Tool eliminato dal mixer.');
+      toast('Instrument removed from the mixer.');
       if (playing) {
         pause();
         play();
@@ -492,7 +524,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   /** Creates an empty custom track and returns its id (null when the limit is reached). */
   function makeLane(name) {
     if (lanes.length >= 12) {
-      toast('Massimo 12 tracks aggiunte.');
+      toast('Maximum 12 added tracks.');
       return null;
     }
     const id = 'lane-' + Math.random().toString(36).slice(2, 8).padEnd(6, '0');
@@ -504,15 +536,15 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   }
   function addLane() {
     const proposed = `Track ${lanes.length + 1}`;
-    const name = (prompt('New track name:', proposed) || '').trim().slice(0, 40);
+    const name = (prompt('Name of the new track:', proposed) || '').trim().slice(0, 40);
     if (!name || !makeLane(name)) return;
     toast(
-      `«${name}» added. Select a clip and choose Copy, then select the track and choose Paste. You can also drag clips here.`
+      `«${name}» added: select a clip, press Copy, choose the track and press Paste (or drag the clips here).`
     );
   }
   function removeLane(id) {
     const name = label(id);
-    if (!confirm(`Delete the track “${name}” and its clips?`)) return;
+    if (!confirm(`Delete the track «${name}» and the clips it contains?`)) return;
     lanes = lanes.filter(l => l.id !== id);
     delete settings[id];
     timeline.forget(id);
@@ -802,7 +834,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     if (!missing.length) return;
     loading = true;
     const forSong = selected;
-    $('mix-status').textContent = 'Loading stems…';
+    $('mix-status').textContent = 'Loading the instruments…';
     try {
       ensureContext();
       let done = 0;
@@ -811,25 +843,25 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
         missing.map(async name => {
           const response = await fetch(`/api/stems/${forSong}/audio?stem=${name}&format=mp3`);
           if (!response.ok)
-            throw new Error(`Tool «${label(name)}» unavailable (${response.status}).`);
+            throw new Error(`Instrument «${label(name)}» not available (${response.status}).`);
           const buffer = await decoder().decodeAudioData(await response.arrayBuffer());
           if (forSong === selected) buffers[name] = buffer;
           done++;
           if (forSong === selected)
-            $('mix-status').textContent = `Loading stems… ${done}/${missing.length}`;
+            $('mix-status').textContent = `Loading the instruments… ${done}/${missing.length}`;
         })
       );
       if (forSong !== selected) return;
       $('mix-total').textContent = time(duration());
-      $('mix-status').textContent = 'Ready. Press Play and adjust the sliders.';
+      $('mix-status').textContent = 'Ready. Press Listen and move the sliders.';
       applyAll();
       timeline.render();
       timeline.ensureFit();
-      if (!s.grid) api(`/api/stems/${forSong}/grid`, 'POST', {}).catch(() => {});
+      if (!s.grid && !s.imported) api(`/api/stems/${forSong}/grid`, 'POST', {}).catch(() => {});
     } catch (e) {
-      const message = e?.message || 'Could not load the stems.';
+      const message = e?.message || 'Loading the instruments failed.';
       if (forSong === selected)
-        $('mix-status').textContent = 'Error: ' + message + ' Select the track again to retry.';
+        $('mix-status').textContent = 'Error: ' + message + ' Select the song again to retry.';
       toast(message);
     } finally {
       loading = false;
@@ -845,12 +877,9 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   function render(next) {
     if (next) state = next;
     const jobs = (state.jobs || []).filter(
-      j =>
-        j.status === 'done' &&
-        j.kind !== 'layer' &&
-        j.assets?.flac === `${j.id}.flac` &&
-        true
+      j => j.status === 'done' && j.kind !== 'layer' && j.assets?.flac === `${j.id}.flac`
     );
+    const drafts = (state.stems?.sessions || []).filter(s => s.imported && s.status === 'importing');
     const select = $('mix-track');
     // A marker before each title tells at a glance whether the stems already exist: ✓ separated, … in progress, ✗ failed.
     const stateOf = id => (state.stems?.sessions || []).find(x => x.id === id)?.status;
@@ -864,27 +893,49 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
             ? '✗ '
             : '   ';
     };
-    const key = jobs.map(j => j.id + j.title + stateOf(j.id)).join('|') + '|' + selected;
+    const key =
+      jobs.map(j => j.id + j.title + stateOf(j.id)).join('|') +
+      drafts.map(s => s.id + s.title + s.stems.join(',')).join('|') +
+      '|' +
+      selected;
     if (select.dataset.key !== key) {
       select.dataset.key = key;
       select.innerHTML =
-        '<option value="">Choose a track (✓ = already separated)</option>' +
+        '<option value="">Choose a song (✓ = already separated)</option>' +
         jobs
           .map(
             j =>
               `<option value="${j.id}"${j.id === selected ? ' selected' : ''}>${badge(j.id)}${esc(j.title)}</option>`
           )
+          .join('') +
+        drafts
+          .map(
+            s =>
+              `<option value="${s.id}"${s.id === selected ? ' selected' : ''}>… ${esc(s.title)} (import in progress)</option>`
+          )
           .join('');
     }
     const s = session();
     const busy = s && ['queued', 'processing'].includes(s.status);
-    $('mix-separate').disabled = !selected || busy || s?.status === 'ready';
-    $('mix-separate').textContent =
-      s?.status === 'ready' ? 'Already separated' : busy ? 'Separation in progress…' : 'Split into stems';
+    $('mix-separate').disabled = !selected || busy || s?.status === 'ready' || s?.imported;
+    $('mix-separate').textContent = s?.imported
+      ? 'Imported stems'
+      : s?.status === 'ready'
+        ? 'Already separated'
+        : busy
+          ? 'Separation in progress…'
+          : 'Split into instruments';
     if (busy) $('mix-status').textContent = s.phase;
     else if (s?.status === 'failed')
-      $('mix-status').textContent = 'Error: ' + (s.error || 'stem separation failed') + ' Try again.';
+      $('mix-status').textContent = 'Error: ' + (s.error || 'separation failed') + ' Retry.';
     $('mix-workspace').hidden = !(s?.status === 'ready');
+    $('mix-ai').hidden = !!(s?.imported && s.status === 'ready' && !s.stems.some(n => n !== 'vocals'));
+    $('mix-separation-note').hidden = !!s?.imported;
+    if ($('mix-import-map').dataset.sessionId !== selected) {
+      $('mix-import-map').dataset.sessionId = selected;
+      if (s?.imported && s.status === 'importing') $('mix-import-title').value = s.title;
+      renderImportMap();
+    }
     if (keys().join('|') !== paintedKey) {
       paintTracks();
       timeline.render();
@@ -904,9 +955,9 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       : null;
     $('mix-ai-go').disabled = !!working;
     $('mix-ai-status').textContent = working
-      ? `${working.title.split(' · ').pop()}: ${working.phase}${working.progress ? ` · ${working.progress.value}/${working.progress.max} steps` : ''}`
+      ? `${working.title.split(' · ').pop()}: ${working.phase}${working.progress ? ` · ${working.progress.value}/${working.progress.max} passi` : ''}`
       : failed
-        ? 'The last stem failed: ' + (failed.error || 'Try again.')
+        ? 'The last instrument failed: ' + (failed.error || 'riprova.')
         : '';
     if (s?.status === 'ready' && active) void loadStems();
     if (s?.status === 'ready' && active) timeline.ensureFit();
@@ -916,6 +967,10 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     if (recording) void stopRecording(false);
     pause();
     selected = id;
+    $('mix-import-title').value =
+      session()?.imported && session()?.status === 'importing' ? session().title : '';
+    importFiles = [];
+    $('mix-import-files').value = '';
     buffers = {};
     position = 0;
     paintTime(0);
@@ -934,7 +989,9 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
     }
     paintTracks();
     $('mix-status').textContent = id
-      ? 'Separation takes about 1–2 minutes per minute of audio and runs only once.'
+      ? session()?.imported
+        ? 'Stems imported or uploading.'
+        : 'Separation takes about 1–2 minutes for every minute of song and is only done once.'
       : '';
     render();
   }
@@ -943,6 +1000,21 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       const file = e.target.files?.[0];
       e.target.value = '';
       void importFile(file);
+    } else if (e.target.id === 'mix-import-files') {
+      importFiles = [...(e.target.files || [])];
+      const capacity = session()?.imported && session()?.status === 'importing' ? remainingSlots().length : 6;
+      if (importFiles.length > capacity) {
+        toast(`You can add at most ${capacity} stems to this session.`);
+        importFiles = [];
+        e.target.value = '';
+      }
+      if (importFiles.length && !$('mix-import-title').value.trim())
+        $('mix-import-title').value =
+          importFiles[0].name
+            .replace(/\.[^.]+$/, '')
+            .replace(/[-_ ]*(vocals?|voice|voce|drums?|bass|guitar|piano|other|instrumental)[-_ ]*$/i, '')
+            .trim() || 'Imported stems';
+      renderImportMap();
     } else if (e.target.id === 'mix-track') choose(e.target.value);
   });
   panel.addEventListener('input', e => {
@@ -952,7 +1024,79 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
   panel.addEventListener('click', async e => {
     const button = e.target.closest('button');
     if (!button) return;
-    if (button.id === 'ext-import') $('ext-file').click();
+    if (button.dataset.removeStem) {
+      if (importing) return;
+      button.disabled = true;
+      try {
+        await api(`/api/stems/${selected}/import/${button.dataset.removeStem}`, 'DELETE');
+        const s = session();
+        if (s) s.stems = s.stems.filter(n => n !== button.dataset.removeStem);
+        renderImportMap();
+        render();
+      } catch (err) {
+        button.disabled = false;
+        toast(err.message);
+      }
+    } else if (button.id === 'mix-import-go') {
+      const draft = session()?.imported && session()?.status === 'importing' ? session() : null;
+      const picks = [...panel.querySelectorAll('.mix-import-slot')].map(el => el.value);
+      const existing = draft?.stems || [];
+      if (!importFiles.length && !existing.length) return toast('Select at least one stem.');
+      if (new Set([...existing, ...picks]).size !== existing.length + picks.length)
+        return toast('Assign each file to a different instrument.');
+      if (importFiles.some(file => file.size > 250 * 1024 * 1024))
+        return toast('Each stem must be at most 250 MB.');
+      const title = $('mix-import-title').value.trim();
+      if (!draft && !title) return toast('Write a title for the song.');
+      importing = true;
+      button.disabled = true;
+      let uploaded = 0;
+      try {
+        const files = [...importFiles];
+        let id = draft?.id;
+        if (!id) {
+          const created = await api('/api/stems/import', 'POST', { title });
+          id = created.session.id;
+          (state.stems ??= { sessions: [] }).sessions.push(created.session);
+          choose(id);
+          importFiles = files;
+          renderImportMap();
+        }
+        for (let i = 0; i < files.length; i++) {
+          $('mix-import-progress').textContent = `Uploading ${i + 1}/${files.length}: ${files[i].name}`;
+          const response = await fetch(`/api/stems/${id}/import/${picks[i]}`, {
+            method: 'POST',
+            headers: { 'X-Sonora': '1', 'Content-Type': 'application/octet-stream' },
+            body: files[i],
+          });
+          const value = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(value.error || 'Upload failed.');
+          const current = session();
+          if (current && !current.stems.includes(picks[i])) current.stems.push(picks[i]);
+          uploaded++;
+        }
+        $('mix-import-progress').textContent = 'Preparing the mixer…';
+        const result = await api(`/api/stems/${id}/finish`, 'POST', {});
+        const current = session();
+        if (current) current.status = 'ready';
+        (state.jobs ??= []).unshift(result.job);
+        importFiles = [];
+        $('mix-import-files').value = '';
+        $('mix-import-progress').textContent = '';
+        render();
+        renderImportMap();
+        toast('Stems imported: the mixer is ready.');
+      } catch (err) {
+        importFiles = importFiles.slice(uploaded);
+        $('mix-import-progress').textContent =
+          `Import interrupted: ${err.message} The stems already uploaded stay saved.`;
+        toast(err.message);
+        renderImportMap();
+      } finally {
+        importing = false;
+        renderImportMap();
+      }
+    } else if (button.id === 'ext-import') $('ext-file').click();
     else if (button.id === 'rec-go') {
       button.disabled = true;
       try {
@@ -963,7 +1107,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       }
     } else if (button.id === 'mix-ai-go') {
       const instrument = $('mix-ai-instrument').value.trim();
-      if (!instrument) return toast('Enter the instrument you want to add.');
+      if (!instrument) return toast('Write which instrument you want to add.');
       button.disabled = true;
       try {
         await api(`/api/stems/${selected}/layer`, 'POST', {
@@ -973,7 +1117,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
           finish: $('mix-ai-finish').value,
         });
         $('mix-ai-instrument').value = '';
-        toast('Generation started. The instrument will appear below when it is ready.');
+        toast('Generation started: the instrument appears below as soon as it is ready.');
       } catch (err) {
         toast(err.message);
         button.disabled = false;
@@ -997,7 +1141,7 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
       }
     } else if (button.id === 'mix-export') {
       button.disabled = true;
-      button.textContent = 'Creating mix…';
+      button.textContent = 'Creating the mix…';
       try {
         await api(`/api/stems/${selected}/export`, 'POST', {
           tracks: Object.fromEntries(keys().map(n => [n, entry(n)])),
@@ -1005,13 +1149,13 @@ export function initStemMixer({ api, toast, pauseLibrary, openView, onExported }
           bpm: Math.round((timeline.bpm() || 100) * 100) / 100,
           lanes: lanes.map(l => l.id),
         });
-        toast('Mix saved as a new track in your library.');
+        toast('Mix saved as a new song in the library.');
         onExported?.();
       } catch (err) {
         toast(err.message);
       } finally {
         button.disabled = false;
-        button.textContent = 'Save mix as a new track';
+        button.textContent = 'Save the mix as a new song';
       }
     }
   });

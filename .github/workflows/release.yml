@@ -1,0 +1,43 @@
+name: Release (portable Windows download)
+
+# Runs when a version tag such as v1.1.0 is pushed, or by hand from the Actions tab.
+# It tests the code, builds the portable folder (app + checked Node.js + Sonora.exe), zips it and publishes the zip.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  portable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test
+        run: |
+          npm test
+          npm run check
+      - name: Build the portable folder
+        run: node scripts/make-portable.mjs --out dist/Sonora-Studio-portable
+      - name: Zip it and write its checksum
+        shell: pwsh
+        run: |
+          $name = "Sonora-Studio-$((Get-Content package.json | ConvertFrom-Json).version)-win-x64.zip"
+          Compress-Archive -Path dist/Sonora-Studio-portable -DestinationPath "dist/$name"
+          $hash = (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name" | Out-File -Encoding ascii "dist/$name.sha256"
+          "ZIP_NAME=$name" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portable-windows
+          path: dist/*.zip*
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "dist/${{ env.ZIP_NAME }}" "dist/${{ env.ZIP_NAME }}.sha256" --title "Sonora Studio ${{ github.ref_name }}" --generate-notes

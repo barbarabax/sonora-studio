@@ -1,19 +1,13 @@
 // @codedna
 // description: Local fallback for "Auto" tempo, time signature and key when no AI is available: a guess from the words of the style.
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: guessMeta
-// used_by: sonora-studio/public/create-ui.mjs
-//                   sonora-studio/server.mjs
+// used_by: public/create-ui.mjs
+//                   server.mjs
 // rules:   Pure function, no I/O. Always returns a complete, valid triple (bpm 40-220, timesignature "2|3|4|6", keyscale from the 24 natural names); an explicit "NN BPM" in the text wins over any genre guess.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-10 | s_20261010_crea | Created for the Auto rows of "Crea musica".
 const GENRES = [

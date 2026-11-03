@@ -28,16 +28,69 @@ test('mixer settings are validated and solo/mute decide what is audible', () => 
   assert.deepEqual(stemMixFilter(solo).names, ['bass']);
   const panned = stemMixFilter(validateStemMix({ tracks: { vocals: { pan: 0.5, gain: 1.5 } } }));
   assert.match(panned.graph, /c0=0\.7500\*c0\|c1=1\.5000\*c1/);
-  assert.throws(() => validateStemMix({ tracks: { bass: { gain: 3 } } }), /Invalid settings/);
-  assert.throws(() => validateStemMix({ tracks: { kazoo: {} } }), /Unknown instrument/);
+  assert.throws(() => validateStemMix({ tracks: { bass: { gain: 3 } } }), /Invalid settings for bass\./);
+  assert.throws(() => validateStemMix({ tracks: { kazoo: {} } }), /Unknown instrument\./);
   assert.throws(
     () =>
       stemMixFilter(
         validateStemMix({ tracks: Object.fromEntries(STEM_NAMES.map(n => [n, { mute: true }])) })
       ),
-    /No instruments are active/
+    /No instrument is active:/
   );
 });
+
+test(
+  'existing stems start a mixer session without separating a song and survive a restart',
+  { skip: !hasFfmpeg },
+  async t => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-import-stems-'));
+    t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(dataDir, 'audio'), { recursive: true });
+    const tone = (file, hz) =>
+      spawnSync('ffmpeg', [
+        '-y',
+        '-v',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        `sine=frequency=${hz}:duration=2`,
+        '-ac',
+        '2',
+        '-ar',
+        '44100',
+        file,
+      ]);
+    const voice = path.join(dataDir, 'voice.wav');
+    const accompaniment = path.join(dataDir, 'accompaniment.wav');
+    tone(voice, 440);
+    tone(accompaniment, 220);
+    const options = { root: path.resolve('.'), dataDir, getJob: () => null };
+    const stems = createStems(options);
+    const draft = stems.createImport({ title: 'Brano con stem', workspaceId: 'general' });
+    await stems.importStem(draft.id, 'vocals', Readable.from([fs.readFileSync(voice)]));
+    await stems.importStem(draft.id, 'other', Readable.from([fs.readFileSync(accompaniment)]));
+    assert.deepEqual(stems.snapshot().sessions[0].stems, ['vocals', 'other']);
+    assert.ok(fs.statSync(stems.media(draft.id, 'vocals', 'mp3')).size > 1000);
+    await assert.rejects(
+      () => stems.importStem(draft.id, 'vocals', Readable.from([fs.readFileSync(voice)])),
+      /The stem vocals is/
+    );
+    const source = await stems.prepareImport(draft.id);
+    assert.deepEqual(source.stems, ['vocals', 'other']);
+    assert.ok(Math.abs((await audioSeconds(source.flac)) - 2) < 0.1);
+    stems.completeImport(draft.id);
+    stems.close();
+    const reopened = createStems(options);
+    assert.equal(reopened.snapshot().sessions[0].status, 'ready');
+    const guide = await reopened.layerSource(draft.id);
+    assert.ok(Math.abs((await audioSeconds(guide)) - 2) < 0.1);
+    const files = await reopened.mixdown(draft.id, { tracks: { vocals: { mute: true } } });
+    assert.ok(Math.abs((await audioSeconds(files.flac)) - 2) < 0.1);
+    assert.ok(fs.statSync(files.mp3).size > 1000);
+    reopened.close();
+  }
+);
 
 test(
   'a separated song is mixed down to FLAC and MP3 with the requested balance',
@@ -92,7 +145,7 @@ test(
     assert.ok(fs.statSync(files.mp3).size > 1000);
     // An AI layer: a finished helper song registered as one more track; unknown layer ids stay rejected.
     const layerId = '66666666-6666-4666-8666-666666666666';
-    assert.throws(() => stems.media(id, layerId, 'mp3'), /unavailable/);
+    assert.throws(() => stems.media(id, layerId, 'mp3'), /Instrument not available\./);
     tone(path.join(dataDir, 'audio', layerId + '.flac'), 1000);
     tone(path.join(dataDir, 'audio', layerId + '.mp3'), 1000);
     stems.addLayer(id, { id: layerId, name: 'Violoncello' });
@@ -104,24 +157,27 @@ test(
     assert.ok(Math.abs((await audioSeconds(withLayer.flac)) - 3) < 0.1);
     await assert.rejects(
       () => stems.mixdown(id, { tracks: { '77777777-7777-4777-8777-777777777777': {} } }),
-      /Unknown instrument/
+      /Unknown instrument\./
     );
     const source = await stems.layerSource(id);
     assert.ok(Math.abs((await audioSeconds(source)) - 3) < 0.2);
     stems.removeLayer(id, layerId);
     assert.deepEqual(stems.snapshot().sessions[0].layers, []);
-    assert.throws(() => stems.removeLayer(id, layerId), /not found/);
-    assert.throws(() => stems.media(id, 'kazoo', 'mp3'), /unavailable/);
+    assert.throws(() => stems.removeLayer(id, layerId), /Added instrument not found\./);
+    assert.throws(() => stems.media(id, 'kazoo', 'mp3'), /Instrument not available\./);
     stems.close();
   }
 );
 
 test('timeline cuts are validated and become trimmed, delayed segments in the mix', () => {
   const keys = [...STEM_NAMES];
-  assert.throws(() => validateClips({ kazoo: [] }, keys), /Unknown instrument/);
-  assert.throws(() => validateClips({ bass: [{ at: -1, from: 0, len: 2 }] }, keys), /Invalid cut/);
-  assert.throws(() => validateClips({ bass: [{ at: 0, from: 0, len: 0.01 }] }, keys), /Invalid cut/);
-  assert.throws(() => validateClips({ bass: Array(65).fill({ at: 0, from: 0, len: 1 }) }, keys), /Too many cuts/);
+  assert.throws(() => validateClips({ kazoo: [] }, keys), /Unknown instrument\./);
+  assert.throws(() => validateClips({ bass: [{ at: -1, from: 0, len: 2 }] }, keys), /Invalid cut\./);
+  assert.throws(() => validateClips({ bass: [{ at: 0, from: 0, len: 0.01 }] }, keys), /Invalid cut\./);
+  assert.throws(
+    () => validateClips({ bass: Array(65).fill({ at: 0, from: 0, len: 1 }) }, keys),
+    /Too many cuts on/
+  );
   const clips = validateClips(
     {
       bass: [
@@ -142,9 +198,9 @@ test('timeline cuts are validated and become trimmed, delayed segments in the mi
 test('custom lanes: validated ids, clips may play another track and stay silent when empty', () => {
   assert.deepEqual(validateLanes(undefined), []);
   assert.deepEqual(validateLanes(['lane-abc123']), ['lane-abc123']);
-  assert.throws(() => validateLanes(['lane-x']), /Invalid added tracks/);
-  assert.throws(() => validateLanes(['..\/etc']), /Invalid added tracks/);
-  assert.throws(() => validateLanes(['lane-abc123', 'lane-abc123']), /Invalid added tracks/);
+  assert.throws(() => validateLanes(['lane-x']), /Invalid added tracks\./);
+  assert.throws(() => validateLanes(['../etc']), /Invalid added tracks\./);
+  assert.throws(() => validateLanes(['lane-abc123', 'lane-abc123']), /Invalid added tracks\./);
   const lanes = ['lane-abc123'];
   const keys = [...STEM_NAMES, ...lanes];
   const clips = validateClips(
@@ -155,11 +211,11 @@ test('custom lanes: validated ids, clips may play another track and stay silent 
   assert.equal(clips['lane-abc123'][0].src, 'drums');
   assert.throws(
     () => validateClips({ bass: [{ at: 0, from: 0, len: 1, src: 'lane-abc123' }] }, keys, STEM_NAMES),
-    /Unknown cut source/
+    /Unknown cut source\./
   );
   assert.throws(
     () => validateClips({ bass: [{ at: 0, from: 0, len: 1, src: '../x' }] }, keys, STEM_NAMES),
-    /Unknown cut source/
+    /Unknown cut source\./
   );
   const tracks = validateStemMix({ tracks: { 'lane-abc123': { gain: 0.5, pan: -1 } } }, [], lanes);
   const mix = stemMixFilter(tracks, clips);
@@ -177,8 +233,8 @@ test('clip fades are validated, clamped to the clip and written into the mix fil
   assert.equal(clip.fo, 0.5);
   const [over] = validateClips({ bass: [{ at: 0, from: 0, len: 2, fi: 3, fo: 1 }] }, keys).bass;
   assert.ok(Math.abs(over.fi + over.fo - 2) < 1e-9, 'fades never exceed the clip');
-  assert.throws(() => validateClips({ bass: [{ at: 0, from: 0, len: 2, fi: -1 }] }, keys), /Invalid fade/);
-  assert.throws(() => validateClips({ bass: [{ at: 0, from: 0, len: 2, fo: 'x' }] }, keys), /Invalid fade/);
+  assert.throws(() => validateClips({ bass: [{ at: 0, from: 0, len: 2, fi: -1 }] }, keys), /Invalid fade\./);
+  assert.throws(() => validateClips({ bass: [{ at: 0, from: 0, len: 2, fo: 'x' }] }, keys), /Invalid fade\./);
   const { graph } = stemMixFilter(validateStemMix({}), {
     bass: [clip],
     drums: [],
@@ -400,7 +456,7 @@ test(
     fs.mkdirSync(path.join(dataDir, 'stems', id), { recursive: true });
     await assert.rejects(
       () => stems.addExternal(id, Readable.from([Buffer.alloc(200)])),
-      /Separate the track first/
+      /Split the song first\./
     );
     stems.separate(id);
     for (let i = 0; i < 100 && stems.snapshot().sessions[0].status !== 'ready'; i++)
@@ -421,7 +477,7 @@ test(
     assert.ok(fs.existsSync(stems.media(id, entry.id, 'mp3')));
     await assert.rejects(
       () => stems.addExternal(id, Readable.from([Buffer.from('not audio at all, just text')])),
-      /Audio file is empty|unreadable|readable audio/i
+      /leggibile|audio/
     );
     assert.equal(stems.snapshot().sessions[0].externals.length, 1, 'a rejected file leaves no trace');
     // The take plays on a custom lane at 1 s: the song stays 3 s long and the lane is the only audible one.
@@ -468,11 +524,11 @@ test(
           lanes: [lane],
           clips: { [lane]: [{ at: 0, from: 0, len: 1, src: '00000000-0000-4000-8000-000000000000' }] },
         }),
-      /Unknown cut source/
+      /Unknown cut source\./
     );
     stems.removeExternal(id, entry.id);
     assert.equal(stems.snapshot().sessions[0].externals.length, 0);
-    assert.throws(() => stems.media(id, entry.id, 'mp3'), /unavailable/);
+    assert.throws(() => stems.media(id, entry.id, 'mp3'), /Instrument not available\./);
     stems.close();
   }
 );

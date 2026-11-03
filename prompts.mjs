@@ -1,14 +1,10 @@
 // @codedna
 // description: Saved prompts (style, optional lyrics and chosen options) kept on the server so every device sees the same list.
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: PROMPT_LIMIT | createPromptStore
-// used_by: sonora-studio/server.mjs
+// used_by: server.mjs
 // rules:   Every write goes through a .tmp file and a rename. Validate lengths and the options whitelist: a saved prompt is plain data and is never executed or interpolated into paths.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-10 | s_20261010_crea | Created for the "Crea musica" reorganisation (saved prompts).
 import fs from 'node:fs';
@@ -40,7 +36,7 @@ export function createPromptStore({ dataDir, onChange = () => {} }) {
       const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
       if (Array.isArray(saved.items)) items = saved.items;
     } catch {
-      throw new Error('prompts.json is unreadable. Restore a backup without overwriting it.');
+      throw new Error('prompts.json is not readable: restore a backup, without overwriting it.');
     }
   }
   const save = () => {
@@ -66,7 +62,7 @@ export function createPromptStore({ dataDir, onChange = () => {} }) {
       throw new Error('Invalid options.');
     for (const [key, value] of Object.entries(rawOptions)) {
       if (!Object.hasOwn(OPTION_KEYS, key)) continue;
-      if (!OPTION_KEYS[key](value)) throw new Error(`Invalid ${key} option.`);
+      if (!OPTION_KEYS[key](value)) throw new Error(`Option ${key} is not valid.`);
       options[key] = value;
     }
     return {
@@ -79,14 +75,14 @@ export function createPromptStore({ dataDir, onChange = () => {} }) {
   }
   const find = id => {
     const item = items.find(p => p.id === id);
-    if (!item) throw new Error('Prompt was not found.');
+    if (!item) throw new Error('Prompt not found.');
     return item;
   };
   return {
     list: () => [...items].sort((a, b) => (b.usedAt || b.createdAt).localeCompare(a.usedAt || a.createdAt)),
     create(body) {
       if (items.length >= PROMPT_LIMIT)
-        throw new Error(`You have reached the ${PROMPT_LIMIT} saved prompt limit. Delete one before adding another.`);
+        throw new Error(`You have reached the limit of ${PROMPT_LIMIT} saved prompts: delete some.`);
       const now = new Date().toISOString();
       const item = { id: randomUUID(), ...clean(body), createdAt: now, usedAt: null };
       items.push(item);
@@ -108,7 +104,7 @@ export function createPromptStore({ dataDir, onChange = () => {} }) {
     },
     /** Import a list exported earlier: invalid entries are skipped, the limit is respected. Returns how many were added. */
     importMany(list) {
-      if (!Array.isArray(list)) throw new Error('Invalid prompt file.');
+      if (!Array.isArray(list)) throw new Error('Invalid prompts file.');
       let added = 0;
       for (const entry of list.slice(0, PROMPT_LIMIT)) {
         if (items.length >= PROMPT_LIMIT) break;

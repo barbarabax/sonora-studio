@@ -16,19 +16,13 @@
 //
 //
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: probeDuration | excerptWindow | excerpt
-// used_by: sonora-studio/audio-lab.mjs
-//                   sonora-studio/server.mjs
+// used_by: audio-lab.mjs
+//                   server.mjs
 // rules:   Paths come from the server, never from the browser; excerpts stay in memory and are never saved.
 // agent:   Claude - 2026-10-05 - Audio input for OpenAI listening models.
 import { spawn } from 'node:child_process';
@@ -50,13 +44,13 @@ function run(command, args, binary) {
     child.once('error', e =>
       reject(
         new Error(
-          e.code === 'ENOENT' ? 'FFmpeg was not found. Install it to let AI analyze audio.' : e.message
+          e.code === 'ENOENT' ? 'FFmpeg not found: install it so the AI can listen to the audio.' : e.message
         )
       )
     );
     child.once('close', code => {
       if (code !== 0 || size > MAX_BYTES)
-        reject(new Error('Could not prepare the audio excerpt. ' + error.trim().split('\n').pop()));
+        reject(new Error('Cannot prepare the audio excerpt. ' + error.trim().split('\n').pop()));
       else resolve(binary ? Buffer.concat(out) : Buffer.concat(out).toString('utf8'));
     });
   });
@@ -69,7 +63,7 @@ export async function probeDuration(file) {
     false
   );
   const seconds = Number(out.trim());
-  if (!Number.isFinite(seconds) || seconds <= 0) throw new Error('Unrecognized audio format.');
+  if (!Number.isFinite(seconds) || seconds <= 0) throw new Error('Audio format not recognised.');
   return seconds;
 }
 
@@ -105,6 +99,6 @@ export async function excerpt(file, { start = 0, seconds = 60, rate = 24000 } = 
     ],
     true
   );
-  if (wav.length < 1000) throw new Error('Audio excerpt is empty.');
+  if (wav.length < 1000) throw new Error('Empty audio excerpt.');
   return { data: wav.toString('base64'), format: 'wav', start, seconds };
 }

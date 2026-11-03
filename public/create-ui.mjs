@@ -1,14 +1,10 @@
 // @codedna
-// description: "Create music" extras: Custom/Remix/Edit tabs, Auto rows, Creative-Robust slider, reference audio, dice and saved prompts.
+// description: "Crea musica" extras: Personalizzato/Remix/Modifica tabs, Auto rows, Creativo-Robusto slider, reference audio, dice and saved prompts.
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: sliderToValues | valuesToSlider | parseClock | initCreateUi
-// used_by: sonora-studio/public/app.js
+// used_by: public/app.js
 // rules:   The dice only FILLS fields, it never starts a generation. Auto rows are resolved before the request leaves the browser, so the user sees the real tempo/key/meter the song will use. No inline style attributes (CSP): use CSSOM or classes.
 // agent:   claude-sonnet-5-5 | anthropic | 2026-10-10 | s_20261010_crea | Created for the ACEMusic-style reorganisation of the create page.
 import { randomPromptState, buildPrompt, effectiveBpm } from './prompt-core.mjs';
@@ -132,19 +128,19 @@ export function initCreateUi({
     if (Object.keys(patch).length) {
       setFields(patch);
       toast(
-        `Auto ${result.by === 'ai' ? '(selected by AI)' : '(estimated from style)'}: ${patch.bpm ?? input.bpm} BPM · ${patch.keyscale ?? input.keyscale} · ${(patch.timesignature ?? input.timesignature) === '6' ? '6/8' : (patch.timesignature ?? input.timesignature) + '/4'}`
+        `Auto ${result.by === 'ai' ? '(chosen by the AI)' : '(estimated from the style)'}: ${patch.bpm ?? input.bpm} BPM · ${patch.keyscale ?? input.keyscale} · ${(patch.timesignature ?? input.timesignature) === '6' ? '6/8' : (patch.timesignature ?? input.timesignature) + '/4'}`
       );
     }
     return patch;
   }
 
-  /* ---------- Creative ↔ Robusto ---------- */
+  /* ---------- Creativo ↔ Robusto ---------- */
   const slider = $('#style-slider');
   function paintSlider() {
     const g = Number($('#guidance').value),
       c = Number($('#creativity').value);
     $('#style-values').textContent =
-      `Guidance ${g.toLocaleString('en-GB')} · variety ${c.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`;
+      `guidance ${g.toLocaleString('en-GB')} · variety ${c.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`;
   }
   slider.addEventListener('input', () => {
     const v = sliderToValues(Number(slider.value));
@@ -163,7 +159,7 @@ export function initCreateUi({
   let reference = { id: '', name: '' };
   function paintReference() {
     $('#ref-id').value = reference.id;
-    $('#ref-name').textContent = reference.id ? reference.name || 'Uploaded audio' : 'None';
+    $('#ref-name').textContent = reference.id ? reference.name || 'Audio uploaded' : 'None';
     $('#ref-clear').hidden = !reference.id;
   }
   $('#ref-clear').addEventListener('click', () => {
@@ -176,7 +172,7 @@ export function initCreateUi({
     $('#ref-file').value = '';
     if (!file) return;
     if (state().health?.backend !== 'runpod') {
-      toast('Reference audio requires RunPod. Select RunPod in the Generation provider menu.');
+      toast('Reference audio requires RunPod: choose RunPod in the Generation menu.');
       return;
     }
     const start = parseClock($('#ref-start').value) ?? 0;
@@ -196,7 +192,7 @@ export function initCreateUi({
       const body = await r.json();
       if (!r.ok) throw new Error(body.error || 'Upload failed.');
       reference = { id: body.id, name: `${file.name.replace(/\.[a-z0-9]{2,5}$/i, '')} · ${body.seconds} s` };
-      toast('Reference ready. Full planning stays off while a reference is selected.');
+      toast('Reference ready. With a reference the «Elaborate» planner stays off.');
     } catch (e) {
       toast(e.message);
     }
@@ -205,12 +201,12 @@ export function initCreateUi({
   });
   function paintFinish() {
     const final = $('#finish').value === 'final';
-    $('#avoid-state').textContent = final ? 'On with Final' : 'Final only';
+    $('#avoid-state').textContent = final ? 'Active with Final' : 'Only with Final';
     $('#avoid').closest('.opt-row').classList.toggle('is-off', !final);
   }
   $('#finish').addEventListener('change', paintFinish);
 
-  /* ---------- Reset all to Auto ---------- */
+  /* ---------- Tutto su Auto ---------- */
   $('#adv-reset').addEventListener('click', () => {
     applyAuto(AUTO_FIELDS);
     $('#duration-mode').value = 'auto';
@@ -257,7 +253,7 @@ export function initCreateUi({
         durationOverrides: {},
         autoMeta: AUTO_FIELDS.filter(f => !(f in meta)),
       });
-      toast('Idea ready: the style and lyrics fit together. Review them, then select Create when you are ready.');
+      toast('Idea ready: style and lyrics are consistent. Read it over and press Create when you like.');
     } catch (e) {
       applyInput({
         tags: built.optimized,
@@ -266,13 +262,96 @@ export function initCreateUi({
         autoMeta: AUTO_FIELDS.filter(f => !(f in meta)),
       });
       toast(
-        `Only the style was filled in (${e.message}). Configure AI in Prompt and lyrics to generate lyrics too.`
+        `Only the style was filled in (${e.message}). To get the lyrics too, set up the AI in the Prompt assistant.`
       );
     } finally {
       rolling = false;
       $('#dice').disabled = false;
       $('#dice').classList.remove('rolling');
     }
+  });
+
+  /* ---------- AI help inside the form: improve the style prompt, write lyrics that fit it ---------- */
+  // Rules: both buttons only FILL a field and keep the previous text for one undo; neither starts a generation.
+  const aiHelp = (button, undo, field, run) => {
+    let before = null,
+      busy = false;
+    button.addEventListener('click', async () => {
+      if (busy) return;
+      busy = true;
+      button.disabled = true;
+      const label = button.textContent;
+      button.textContent = 'One moment…';
+      try {
+        const previous = $('#' + field).value;
+        const next = await run(previous);
+        before = previous;
+        applyInput({ [field]: next });
+        undo.hidden = false;
+      } catch (e) {
+        if (!e.cancelled)
+          toast(`${e.message} If you have not done so yet, set up the AI in the Prompt assistant.`);
+      } finally {
+        busy = false;
+        button.disabled = false;
+        button.textContent = label;
+      }
+    });
+    undo.addEventListener('click', () => {
+      if (before === null) return;
+      applyInput({ [field]: before });
+      before = null;
+      undo.hidden = true;
+    });
+    $('#' + field).addEventListener('input', () => {
+      before = null;
+      undo.hidden = true;
+    });
+  };
+  const yueOn = () => state().health?.musicModel === 'yue2';
+  // Rules: until the user picks a language here, it follows the model: English for YuE2, otherwise the song's own language setting.
+  const lyricsLanguage = $('#lyrics-language');
+  const syncLyricsLanguage = () => {
+    if (lyricsLanguage.dataset.touched) return;
+    const wanted = yueOn() ? 'en' : $('#language').value;
+    lyricsLanguage.value = [...lyricsLanguage.options].some(o => o.value === wanted) ? wanted : 'it';
+  };
+  lyricsLanguage.addEventListener('change', () => (lyricsLanguage.dataset.touched = '1'));
+  // Rules: the language only matters for writing new lyrics, so it shows only while the lyrics box is empty.
+  const paintLanguageRow = () => ($('#lyrics-language-row').hidden = !!$('#lyrics').value.trim());
+  $('#lyrics').addEventListener('input', paintLanguageRow);
+  paintLanguageRow();
+  $('#language').addEventListener('change', syncLyricsLanguage);
+  $('#music-model').addEventListener('change', syncLyricsLanguage);
+  aiHelp($('#improve-tags'), $('#improve-undo'), 'tags', async previous => {
+    if (!previous.trim()) throw new Error('Write a description of the sound first.');
+    const result = await api('/api/prompt-ai/boost', 'POST', {
+      basePrompt: previous.trim().slice(0, 3000),
+      engine: yueOn() ? 'yue2' : 'ace-step',
+    });
+    toast('Prompt improved. Read it over: «Undo» restores yours.');
+    return result.boostedPrompt;
+  });
+  aiHelp($('#lyrics-generate'), $('#lyrics-undo'), 'lyrics', async previous => {
+    const style = $('#tags').value.trim();
+    if (!style) throw new Error('Describe the style first: the lyrics are built from it.');
+    if (previous.trim() && !window.confirm('The lyrics you wrote will be replaced (you can undo). Continue?'))
+      throw Object.assign(new Error('Lyrics unchanged.'), { cancelled: true });
+    syncLyricsLanguage();
+    const asked = Number(getInput().duration);
+    const duration = yueOn() ? 180 : Number.isInteger(asked) ? Math.min(300, Math.max(10, asked)) : 120;
+    const result = await api('/api/prompt-ai/lyrics', 'POST', {
+      mode: 'write',
+      musicalContext: style.slice(0, 3000),
+      concept: $('#title').value.trim().slice(0, 300),
+      language: LANGUAGE_NAMES[lyricsLanguage.value] || 'Italian',
+      duration,
+      engine: yueOn() ? 'yue2' : 'ace-step',
+    });
+    toast(
+      `Lyrics written (${result.words} words). Read them over and change what you like: «Undo» restores yours.`
+    );
+    return result.lyrics;
   });
 
   /* ---------- saved prompts ---------- */
@@ -305,8 +384,7 @@ export function initCreateUi({
     const filter = $('#saved-filter');
     const keep = filter.value;
     filter.innerHTML =
-      '<option value="">All labels</option>' +
-      labels.map(l => `<option>${escapeHtml(l)}</option>`).join('');
+      '<option value="">All labels</option>' + labels.map(l => `<option>${escapeHtml(l)}</option>`).join('');
     filter.value = labels.includes(keep) ? keep : '';
     $('#saved-labels').innerHTML = labels.map(l => `<option value="${escapeHtml(l)}"></option>`).join('');
     const query = $('#saved-search').value.trim().toLowerCase();
@@ -319,10 +397,10 @@ export function initCreateUi({
       ? shown
           .map(
             p =>
-              `<article class="saved-item"><div class="saved-text"><strong>${escapeHtml(p.name)}</strong>${p.label ? `<span class="saved-label">${escapeHtml(p.label)}</span>` : ''}<p>${escapeHtml(p.tags.slice(0, 140))}${p.tags.length > 140 ? '…' : ''}</p>${p.lyrics ? '<small>with lyrics</small>' : '<small>style only</small>'}</div><div class="saved-actions"><button type="button" class="pill-button" data-saved="use" data-id="${p.id}">Use</button><button type="button" class="text-button" data-saved="rename" data-id="${p.id}">Rename</button><button type="button" class="text-button" data-saved="copy" data-id="${p.id}">Duplicatete</button><button type="button" class="text-button" data-saved="delete" data-id="${p.id}">Delete</button></div></article>`
+              `<article class="saved-item"><div class="saved-text"><strong>${escapeHtml(p.name)}</strong>${p.label ? `<span class="saved-label">${escapeHtml(p.label)}</span>` : ''}<p>${escapeHtml(p.tags.slice(0, 140))}${p.tags.length > 140 ? '…' : ''}</p>${p.lyrics ? '<small>with lyrics</small>' : '<small>style only</small>'}</div><div class="saved-actions"><button type="button" class="pill-button" data-saved="use" data-id="${p.id}">Use</button><button type="button" class="text-button" data-saved="rename" data-id="${p.id}">Rename</button><button type="button" class="text-button" data-saved="copy" data-id="${p.id}">Duplicate</button><button type="button" class="text-button" data-saved="delete" data-id="${p.id}">Delete</button></div></article>`
           )
           .join('')
-      : `<p class="field-hint">${list.length ? 'No prompts match your search.' : 'No saved prompts yet. Write a style, then save it here.'}</p>`;
+      : `<p class="field-hint">${list.length ? 'No prompt matches the search.' : 'No saved prompts yet. Write the style, then save it above.'}</p>`;
     let old = [];
     try {
       old = JSON.parse(localStorage.getItem('sonora-prompt-presets-v1')) || [];
@@ -343,7 +421,7 @@ export function initCreateUi({
     savedError('');
     const name = $('#saved-name').value.trim();
     try {
-      if (!$('#tags').value.trim()) throw new Error('Write the style you want to save first.');
+      if (!$('#tags').value.trim()) throw new Error('Write the style to save first.');
       await api('/api/prompts', 'POST', {
         name: name || $('#title').value.trim() || $('#tags').value.trim().slice(0, 40),
         label: $('#saved-label').value,
@@ -374,7 +452,7 @@ export function initCreateUi({
         await api(`/api/prompts/${item.id}`, 'PATCH', { used: true });
         dialog.close();
         selectTab('custom');
-        toast(`«${item.name}» loaded. Edit it or select Create.`);
+        toast(`«${item.name}» loaded. Edit it or press Create.`);
       } else if (button.dataset.saved === 'rename') {
         const name = prompt('New name:', item.name);
         if (name?.trim()) await api(`/api/prompts/${item.id}`, 'PATCH', { name });
@@ -423,7 +501,7 @@ export function initCreateUi({
           try {
             return {
               name: p.name,
-              label: 'from assistant',
+              label: 'dall’assistente',
               tags: buildPrompt(p.choices).optimized,
               options: {},
             };
@@ -432,14 +510,14 @@ export function initCreateUi({
           }
         })
         .filter(Boolean);
-      toast(`${await importList(list)} presets imported from your browser.`);
+      toast(`${await importList(list)} presets imported from the browser.`);
       localStorage.setItem('sonora-presets-migrated', '1');
       renderSaved();
     } catch (err) {
       savedError(err.message);
     }
   });
-  /** "Save this prompt" from a song's details. */
+  /** "Salva questo prompt" from a song's details. */
   async function saveFromJob(job) {
     await api('/api/prompts', 'POST', {
       name: job.title,
@@ -459,10 +537,10 @@ export function initCreateUi({
         avoid: job.input.avoid || '',
       }),
     });
-    toast('Prompt saved.');
+    toast('Prompt saved in your prompts.');
   }
 
-  /* ---------- Remix / Edit ---------- */
+  /* ---------- Remix / Modifica ---------- */
   let rw = { id: '', total: 0, peaks: null, token: 0, pending: null };
   const mode = () => (tab === 'edit' ? 'repaint' : 'remix');
   const selectedJob = () => state().jobs.find(j => j.id === $('#rw-source').value) || rw.pending;
@@ -490,7 +568,7 @@ export function initCreateUi({
     if (select.dataset.key === key) return;
     select.dataset.key = key;
     select.innerHTML =
-      '<option value="">Choose a track from your library</option>' +
+      '<option value="">Choose a song from the library</option>' +
       list
         .map(
           j => `<option value="${j.id}">${escapeHtml(j.title)} · ${formatDuration(j.input.duration)}</option>`
@@ -501,23 +579,23 @@ export function initCreateUi({
   function applyReworkMode() {
     const part = mode() === 'repaint';
     $('#rw-intro').textContent = part
-      ? 'Change only part of the track (for example, the chorus). The rest stays the same, with crossfaded joins.'
-      : 'Recreate the full track from this one: keep its structure but change the style, instruments or lyrics.';
+      ? 'Changes only one part of the song (for example the chorus): the rest stays the same, with crossfaded joins.'
+      : 'Recreates the whole song starting from this one: same structure, but new style, instruments or words.';
     $('#rw-part').hidden = !part;
     $('#rw-piece').hidden = part || !rw.total;
     $('#rw-tags-label').textContent = part
-      ? 'What should change in this section? (this is added to the track style)'
+      ? 'What do you want to change in this part? (it is added to the style of the song)'
       : 'What should it become?';
     $('#rw-tags').placeholder = part
-      ? 'e.g. stronger orchestral strings, more energetic drums'
-      : 'Style for the new track';
-    $('#rw-lyrics-label').firstChild.textContent = part ? 'Lyrics for this section ' : 'Lyrics ';
+      ? 'E.g. more present orchestral strings, more energetic drums'
+      : 'The style of the new song';
+    $('#rw-lyrics-label').firstChild.textContent = part ? 'Lyrics of this part ' : 'Lyrics ';
     $('#rw-lyrics').placeholder = part
-      ? 'Lyrics for this section (add a tag such as [Chorus - strings] if you like). Leave blank for instrumental.'
+      ? 'Words of this excerpt (and, if you like, a tag such as [Chorus - strings]). Empty = instrumental.'
       : '';
     $('#rw-voice').closest('select').previousElementSibling.hidden = part;
     $('#rw-voice').hidden = part;
-    $('#rw-go-label').textContent = part ? 'Change this section' : 'Create remix';
+    $('#rw-go-label').textContent = part ? 'Change this part' : 'Create the remix';
     const j = selectedJob();
     $('#rw-strength').value = part ? 70 : 50;
     $('#rw-strength-label').textContent = $('#rw-strength').value + '%';
@@ -531,6 +609,43 @@ export function initCreateUi({
     $('#rw-lyrics-box').hidden = !part && voice === 'instrumental';
   }
   $('#rw-voice').addEventListener('change', paintVoice);
+  /* A random lyric sheet that fits the song: for a finished instrumental, or a good song with words you do not like. */
+  $('#rw-lyrics-dice').addEventListener('click', async event => {
+    const button = event.currentTarget,
+      job = selectedJob();
+    reworkError('');
+    if (!job) return reworkError('Choose or upload a song first.');
+    const part = mode() === 'repaint';
+    const upload = job.kind === 'upload';
+    const tags = $('#rw-tags').value.trim() || (upload ? '' : job.input.tags || '');
+    if (!tags)
+      return reworkError('Write the style of the song in «What should it become?», so the lyrics match.');
+    const a = rwSeconds(part ? '#rw-start' : '#rw-from'),
+      b = rwSeconds(part ? '#rw-end' : '#rw-to');
+    const seconds = a !== null && b !== null && b > a ? b - a : job.input.duration || 60;
+    button.disabled = true;
+    const label = button.textContent;
+    button.textContent = 'Writing…';
+    try {
+      const result = await api('/api/prompt/lyrics-fit', 'POST', {
+        tags: tags.slice(0, 3000),
+        language: LANGUAGE_NAMES[job.input.language || $('#language').value] || 'Italian',
+        bpm: job.input.bpm >= 30 && job.input.bpm <= 250 ? job.input.bpm : 110,
+        timesignature: job.input.timesignature || '4',
+        keyscale: job.input.keyscale || '',
+        duration: Math.min(300, Math.max(10, Math.round(seconds))),
+      });
+      $('#rw-lyrics').value = result.lyrics;
+      if (!part) $('#rw-voice').value = 'vocal';
+      paintVoice();
+      toast('Lyrics ready: read them over and press the button when you like.');
+    } catch (e) {
+      reworkError(e.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+    }
+  });
   async function loadSource(job, keepText = false) {
     const token = ++rw.token;
     rw.id = job.id;
@@ -546,8 +661,8 @@ export function initCreateUi({
     $('#rw-start').value = '0:00';
     $('#rw-piece-note').textContent =
       rw.total > 300
-        ? `This track is ${formatDuration(rw.total)}: Choose a section up to 5:00.`
-        : 'ACE-Step processes 10 seconds to 5 minutes at a time. You can use just part of the track.';
+        ? `The song lasts ${formatDuration(rw.total)}: choose an excerpt of at most 5:00 to process.`
+        : 'ACE-Step processes from 10 seconds to 5 minutes at a time. You can use only a part of the song.';
     $('#rw-voice').querySelector('[value="same"]').hidden = upload;
     if (!keepText) {
       $('#rw-tags').value = mode() === 'repaint' || upload ? '' : job.input.tags || '';
@@ -627,8 +742,8 @@ export function initCreateUi({
   async function uploadSong(file) {
     if (!file) return;
     reworkError('');
-    if (file.size > 150 * 1024 * 1024) return reworkError('The file is larger than 150 MB.');
-    $('#rw-upload-note').textContent = `Uploading “${file.name}”…`;
+    if (file.size > 150 * 1024 * 1024) return reworkError('The file exceeds 150 MB.');
+    $('#rw-upload-note').textContent = `Uploading «${file.name}»…`;
     try {
       const r = await fetch('/api/library/upload', {
         method: 'POST',
@@ -647,12 +762,12 @@ export function initCreateUi({
       fillSources();
       $('#rw-source').value = job.id;
       await loadSource(job);
-      toast('Track uploaded. It is also available in your library.');
+      toast('Song uploaded: you will also find it in the library.');
     } catch (e) {
       reworkError(e.message);
     } finally {
       $('#rw-upload-note').textContent =
-        'You can also drop a file here (WAV, MP3, FLAC, M4A or OGG · up to 150 MB). Uploaded tracks are added to your library. Only use audio you have the rights to.';
+        'You can also drag a file here (WAV, MP3, FLAC, M4A, OGG · up to 150 MB). The uploaded song is added to the library. Only use audio you have the rights to.';
     }
   }
   $('#rw-upload').addEventListener('change', async () => {
@@ -681,7 +796,7 @@ export function initCreateUi({
     e.preventDefault();
     reworkError('');
     const job = selectedJob();
-    if (!job) return reworkError('Choose or upload a track first.');
+    if (!job) return reworkError('Choose or upload a song first.');
     const part = mode() === 'repaint';
     const voice = $('#rw-voice').value;
     const body = {
@@ -696,7 +811,7 @@ export function initCreateUi({
       body.end = rwSeconds('#rw-end');
       body.lyrics = $('#rw-lyrics').value;
       if (body.start === null || body.end === null)
-        return reworkError('Enter times as 1:05 or in seconds.');
+        return reworkError('Write the times as 1:05 or in seconds.');
     } else {
       if (voice === 'instrumental') body.instrumental = true;
       else {
@@ -705,9 +820,9 @@ export function initCreateUi({
       }
       const from = rwSeconds('#rw-from'),
         to = rwSeconds('#rw-to');
-      if (from === null || to === null) return reworkError('Enter times as 1:05 or in seconds.');
+      if (from === null || to === null) return reworkError('Write the times as 1:05 or in seconds.');
       if (to - from < 10 || to - from > 300)
-        return reworkError('The section to process must be 10 seconds to 5 minutes long.');
+        return reworkError('The excerpt to process must last from 10 seconds to 5 minutes.');
       if (from > 0 || to < job.input.duration - 0.5) {
         body.sourceStart = from;
         body.sourceEnd = to;
@@ -716,7 +831,7 @@ export function initCreateUi({
     $('#rw-go').disabled = true;
     try {
       await api(`/api/jobs/${job.id}/rework`, 'POST', body);
-      toast('New version queued. It will appear in your library when ready.');
+      toast('New version in the queue: you will find it in the library as soon as it is ready.');
       afterRework();
     } catch (err) {
       reworkError(err.message);
@@ -724,7 +839,7 @@ export function initCreateUi({
       $('#rw-go').disabled = false;
     }
   });
-  /** Open Remix/Edit already pointing at a song (the "Rework" shortcut in a song's details). */
+  /** Open Remix/Modifica already pointing at a song (the "Rielabora" shortcut in a song's details). */
   function openRework(job, which = 'remix') {
     selectTab(which, true);
     fillSources();
@@ -746,6 +861,7 @@ export function initCreateUi({
     fillSources();
     if (dialog.open) renderSaved();
     paintFinish();
+    paintLanguageRow();
   }
   try {
     selectTab(localStorage.getItem('sonora-create-tab') || 'custom', true);

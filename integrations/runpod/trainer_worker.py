@@ -1,11 +1,4 @@
-"""integrations/runpod/trainer_worker.py — Bounded ComfyUI XL LoRA training using the existing persistent model files.
-
-exports: ROOT | REV | SHA | upload(data) | bootstrap() | PUBLISH_SOURCE | train(data, api, write_json, job)
-used_by: none
-rules:   none
-agent:   codedna-cli (no-llm) | codedna-cli | 2026-10-11 | codedna-cli | initial CodeDNA annotation pass
-message: 
-"""
+"""Bounded ComfyUI XL LoRA training using the existing persistent model files."""
 import hashlib
 import json
 import os
@@ -25,7 +18,6 @@ REV = 'cfd644ead212419cd30c99a83d06093cce3d7df2'
 SHA = '06f2b4c03b9e02669ca988b6c16df9591b06dba130cbd2bb3b902994d3d9e170'
 
 def upload(data):
-    """Rules: Upload only the finished LoRA file produced by this worker; never read other paths from the request."""
     project = str(uuid.UUID(data['projectId']))
     track = str(uuid.UUID(data['trackId']))
     ext, total, offset = data['ext'], data['total'], data['offset']

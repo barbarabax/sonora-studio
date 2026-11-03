@@ -1,15 +1,9 @@
 // @codedna
 // description: Audio Lab panel: real-time mastering chain with live A/B monitor, 10-band EQ, spectrum, analysis and export.
-// 
-//
-// 
-//
-// 
-//
 // exports: initAudioLab
-// used_by: sonora-studio/public/app.js
+// used_by: public/app.js
 // rules:   Escape stored titles; never autoplay; AI requests only after an explicit click; the live chain must match audio_lab_dsp.py.
-// agent:   Claude - 2026-10-04 - Audio Lab integration; real-time layout moof thed on barichord.com/lab.
+// agent:   Claude - 2026-10-04 - Audio Lab integration; real-time layout modelled on barichord.com/lab.
 import {
   EQ_BANDS,
   EQ_Q,
@@ -26,37 +20,37 @@ import {
 } from './audio-lab-dsp.mjs';
 
 const PRESETS = {
-  neutral: ['Neutro', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
-  vocal: ['More forward vocals', [0, 0, 0, -1, -1, 0, 1.5, 2.5, 1, 0]],
-  warm: ['Calore', [1, 1.5, 1.5, 1, 0, 0, -0.5, -1, -1, -0.5]],
-  bright: ['Brillantezza', [0, 0, 0, 0, 0, 0, 0.5, 1.5, 2.5, 3]],
-  mud: ['Meno fango', [0, 0, -0.5, -2, -1.5, 0, 0, 0, 0, 0]],
+  neutral: ['Neutral', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  vocal: ['Voice more present', [0, 0, 0, -1, -1, 0, 1.5, 2.5, 1, 0]],
+  warm: ['Warmth', [1, 1.5, 1.5, 1, 0, 0, -0.5, -1, -1, -0.5]],
+  bright: ['Brilliance', [0, 0, 0, 0, 0, 0, 0.5, 1.5, 2.5, 3]],
+  mud: ['Less mud', [0, 0, -0.5, -2, -1.5, 0, 0, 0, 0, 0]],
   bass: ['Fuller bass', [2, 2.5, 1.5, 0, 0, 0, 0, 0, 0, 0]],
-  smile: ['Curva a sorriso', [2, 1.5, 0.5, 0, -1, -1, 0, 1, 2, 2]],
+  smile: ['Smile curve', [2, 1.5, 0.5, 0, -1, -1, 0, 1, 2, 2]],
 };
 const LOUDNESS = [
-  [-20, '-20 LUFS · molto dinamico'],
-  [-18, '-18 LUFS · dinamico'],
+  [-20, '-20 LUFS · very dynamic'],
+  [-18, '-18 LUFS · dynamic'],
   [-16, '-16 LUFS · Apple Music'],
   [-14, '-14 LUFS · Spotify, YouTube'],
   [-12, '-12 LUFS · louder'],
   [-10, '-10 LUFS · club'],
-  [-9, '-9 LUFS · molto forte'],
+  [-9, '-9 LUFS · very loud'],
 ];
 const PEAKS = [
-  [-2, '-2 dBTP · extra sicuro (MP3/AAC)'],
-  [-1, '-1 dBTP · sicuro'],
-  [-0.5, '-0,5 dBTP'],
-  [-0.1, '-0,1 dBTP · massimo'],
+  [-2, '-2 dBTP · extra safe (MP3/AAC)'],
+  [-1, '-1 dBTP · safe'],
+  [-0.5, '-0.5 dBTP'],
+  [-0.1, '-0.1 dBTP · maximum'],
 ];
 const MODE_LABELS = {
   compressor: {
-    off: 'Spento',
-    gentle: 'Delicato · -18 dB 2:1',
-    tight: 'Compatto · -22 dB 3,5:1',
-    punch: 'Incisivo · -24 dB 5:1',
+    off: 'Off',
+    gentle: 'Gentle · -18 dB 2:1',
+    tight: 'Tight · -22 dB 3.5:1',
+    punch: 'Punchy · -24 dB 5:1',
   },
-  reverb: { off: 'Spento', small: 'Piccolo', studio: 'Studio', large: 'Ampio' },
+  reverb: { off: 'Off', small: 'Small', studio: 'Studio', large: 'Wide' },
 };
 const ICONS = {
   start: 'M6 5v14 M18 5 9 12l9 7V5Z',
@@ -69,34 +63,34 @@ const ICONS = {
 };
 const svg = name => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const MONITOR = {
-  processed: 'Elaborato',
+  processed: 'Processed',
   original: 'Original',
-  master: 'Master esportato',
+  master: 'Exported master',
   reference: 'Reference',
 };
 const ROWS = [
-  ['Loudness integrata', 'loudness.integrated', 'LUFS'],
+  ['Integrated loudness', 'loudness.integrated', 'LUFS'],
   ['True peak', 'loudness.truePeak', 'dBTP'],
   ['Sample peak', 'loudness.samplePeak', 'dBFS'],
-  ['PLR · picco meno loudness', 'loudness.plr', 'dB'],
-  ['Fattore di cresta', 'loudness.crest', 'dB'],
+  ['PLR · peak minus loudness', 'loudness.plr', 'dB'],
+  ['Crest factor', 'loudness.crest', 'dB'],
   ['Loudness range (LRA)', 'loudness.lra', 'LU'],
   ['Sub · 20–60 Hz', 'spectrum.bands.sub', '%'],
   ['Bass · 60–250 Hz', 'spectrum.bands.bass', '%'],
   ['Mids · 250 Hz–2 kHz', 'spectrum.bands.lowMid', '%'],
-  ['Presenza · 2–6 kHz', 'spectrum.bands.presence', '%'],
+  ['Presence · 2–6 kHz', 'spectrum.bands.presence', '%'],
   ['Aria · 6–20 kHz', 'spectrum.bands.air', '%'],
-  ['Pendenza spettrale', 'spectrum.tilt', 'dB/ottava', 2],
-  ['Centroide spettrale', 'spectrum.centroid', 'Hz', 0],
-  ['Correlazione stereo', 'stereo.correlation', '', 2],
+  ['Spectral slope', 'spectrum.tilt', 'dB/ottava', 2],
+  ['Spectral centroid', 'spectrum.centroid', 'Hz', 0],
+  ['Stereo correlation', 'stereo.correlation', '', 2],
   ['Bass correlation · below 150 Hz', 'stereo.lowCorrelation', '', 2],
-  ['Ampiezza stereo', 'stereo.width', '%'],
-  ['Bilanciamento sinistra/destra', 'stereo.balance', 'dB'],
-  ['Perdita in mono', 'stereo.monoLoss', 'dB'],
+  ['Stereo width', 'stereo.width', '%'],
+  ['Left/right balance', 'stereo.balance', 'dB'],
+  ['Mono loss', 'stereo.monoLoss', 'dB'],
   ['Clipped sections', 'integrity.clippedRuns', '', 0],
   ['DC offset', 'integrity.dcOffset', '%', 3],
-  ['Silenzio iniziale', 'integrity.headSilence', 's', 2],
-  ['Silenzio finale', 'integrity.tailSilence', 's', 2],
+  ['Leading silence', 'integrity.headSilence', 's', 2],
+  ['Trailing silence', 'integrity.tailSilence', 's', 2],
   ['Noise floor', 'integrity.noiseFloor', 'dBFS'],
 ];
 
@@ -111,14 +105,14 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
   const number = (value, digits = 1) =>
     value === null || value === undefined || !Number.isFinite(Number(value))
       ? '—'
-      : Number(value).toLocaleString('en-GB', {
+      : Number(value).toLocaleString('it-IT', {
           minimumFractionDigits: digits,
           maximumFractionDigits: digits,
         });
   const signed = (value, digits = 1) => (Number(value) > 0 ? '+' : '') + number(value, digits);
   const pick = (object, key) => key.split('.').reduce((value, part) => value?.[part], object);
   const date = value =>
-    new Intl.DateTimeFormat('en-GB', {
+    new Intl.DateTimeFormat('it-IT', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
@@ -141,53 +135,53 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
   };
   panel.innerHTML = `<div class="lab-shell">
     <aside class="lab-side">
-      <section class="lab-card"><div class="lab-card-title">EQ grafico · 10 bande<button id="lab-eq-reset" class="lab-mini">Azzera EQ</button></div>
-        <div class="lab-eq">${EQ_BANDS.map((f, i) => `<label class="lab-band"><output id="lab-eq-${i}-value">0</output><input id="lab-eq-${i}" data-band="${i}" type="range" min="-${EQ_RANGE}" max="${EQ_RANGE}" step="0.5" value="0" aria-label="Banda ${f} Hz"><span>${f < 1000 ? f : f / 1000 + 'k'}</span></label>`).join('')}</div>
-        <div class="lab-preset-row"><select id="lab-preset" aria-label="EQ preset"></select><button id="lab-preset-save" class="lab-mini" title="Save as preset">Save</button><button id="lab-preset-delete" class="lab-mini" title="Delete personal preset">Delete</button></div></section>
-      <section class="lab-card"><div class="lab-card-title">Bilanciamento frequenze<span id="lab-balance-source" class="lab-hint-inline"></span></div>
-        <div class="lab-balance">${['low', 'mid', 'high'].map(k => `<div><i id="lab-balance-${k}"></i><span>${{ low: 'BASS', mid: 'MIDS', high: 'TREBLE' }[k]}</span></div>`).join('')}</div></section>
-      <section class="lab-card"><div class="lab-card-title">Effetti</div>
+      <section class="lab-card"><div class="lab-card-title">Graphic EQ · 10 bands<button id="lab-eq-reset" class="lab-mini">Reset EQ</button></div>
+        <div class="lab-eq">${EQ_BANDS.map((f, i) => `<label class="lab-band"><output id="lab-eq-${i}-value">0</output><input id="lab-eq-${i}" data-band="${i}" type="range" min="-${EQ_RANGE}" max="${EQ_RANGE}" step="0.5" value="0" aria-label="Band ${f} Hz"><span>${f < 1000 ? f : f / 1000 + 'k'}</span></label>`).join('')}</div>
+        <div class="lab-preset-row"><select id="lab-preset" aria-label="Preset EQ"></select><button id="lab-preset-save" class="lab-mini" title="Save as preset">Save</button><button id="lab-preset-delete" class="lab-mini" title="Delete custom preset">Delete</button></div></section>
+      <section class="lab-card"><div class="lab-card-title">Frequency balance<span id="lab-balance-source" class="lab-hint-inline"></span></div>
+        <div class="lab-balance">${['low', 'mid', 'high'].map(k => `<div><i id="lab-balance-${k}"></i><span>${{ low: 'LOW', mid: 'MID', high: 'HIGH' }[k]}</span></div>`).join('')}</div></section>
+      <section class="lab-card"><div class="lab-card-title">Effects</div>
         <label for="lab-compressor">Compressor</label><select id="lab-compressor">${options(Object.entries(MODE_LABELS.compressor))}</select>
-        <label for="lab-width">Ampiezza stereo <output id="lab-width-value"></output></label><input id="lab-width" type="range" min="0.5" max="1.5" step="0.05" value="1">
-        <label for="lab-reverb">Riverbero</label><select id="lab-reverb">${options(Object.entries(MODE_LABELS.reverb))}</select>
-        <p class="lab-note">30 Hz filter → EQ → compressor → stereo width → reverb. Reverb does not extend the track.</p></section>
+        <label for="lab-width">Stereo width <output id="lab-width-value"></output></label><input id="lab-width" type="range" min="0.5" max="1.5" step="0.05" value="1">
+        <label for="lab-reverb">Reverb</label><select id="lab-reverb">${options(Object.entries(MODE_LABELS.reverb))}</select>
+        <p class="lab-note">30 Hz filter → EQ → compressor → width → reverb. The reverb does not lengthen the song.</p></section>
     </aside>
     <div class="lab-main">
-      <div class="lab-drop"><div class="lab-drop-row"><select id="lab-source" aria-label="Track da masterizzare"></select><label class="lab-file" for="lab-import">Upload another audio file</label><input id="lab-import" type="file" accept="audio/*" hidden></div>
-        <div class="lab-status-row"><p id="lab-status" role="status">Choose a track from your library, an editor mix or upload a file (up to 150 MB and 10 minutes).</p><button id="lab-cancel" class="lab-mini" hidden>Cancel</button><button id="lab-analyze" class="lab-mini" hidden>Re-analyze</button><button id="lab-remove" class="lab-mini" hidden>Remove session</button></div><p id="lab-error" class="error" hidden></p></div>
+      <div class="lab-drop"><div class="lab-drop-row"><select id="lab-source" aria-label="Song to master"></select><label class="lab-file" for="lab-import">Upload another audio file</label><input id="lab-import" type="file" accept="audio/*" hidden></div>
+        <div class="lab-status-row"><p id="lab-status" role="status">Choose a song from the library, a mix from the editor, or upload a file (up to 150 MB and 10 minutes).</p><button id="lab-cancel" class="lab-mini" hidden>Cancel</button><button id="lab-analyze" class="lab-mini" hidden>Re-analyse</button><button id="lab-remove" class="lab-mini" hidden>Remove session</button></div><p id="lab-error" class="error" hidden></p></div>
       <div id="lab-workspace" hidden>
-        <details class="lab-card lab-ai" open><summary>AI analysis · <span id="lab-ai-provider">AI</span> <span class="lab-hint-inline">optional; uses your credits</span></summary>
-          <p id="lab-ai-explain" class="lab-note">Runs only when you select the button.</p>
-          <label class="lab-check lab-listen-check" id="lab-listen-row" hidden><input id="lab-listen" type="checkbox" checked> Let AI listen to an excerpt (45 sec of track, 30 sec of reference)</label>
-          <div class="lab-ai-row"><input id="lab-goal" maxlength="500" placeholder="Optional goal, e.g. clearer vocals or a streaming master"><button id="lab-advice" class="pill-button">Ask AI for suggestions</button></div><p id="lab-ai-status" class="lab-note"></p><div id="lab-advice-result"></div>
-          <div class="lab-ai-row lab-ref-row"><label class="pill-button subtle lab-file-inline" for="lab-ref-import">Load a reference</label><input id="lab-ref-import" type="file" accept="audio/*" hidden><span id="lab-ref-status" class="lab-note"></span></div></details>
+        <details class="lab-card lab-ai" open><summary>AI analysis · <span id="lab-ai-provider">AI</span> <span class="lab-hint-inline">optional, uses your credit</span></summary>
+          <p id="lab-ai-explain" class="lab-note">It only starts when you press the button.</p>
+          <label class="lab-check lab-listen-check" id="lab-listen-row" hidden><input id="lab-listen" type="checkbox" checked> Let the AI listen to an excerpt (45 s of the song, 30 s of the reference)</label>
+          <div class="lab-ai-row"><input id="lab-goal" maxlength="500" placeholder="Optional goal: e.g. more vocal presence, master for streaming"><button id="lab-advice" class="pill-button">Ask for AI suggestions</button></div><p id="lab-ai-status" class="lab-note"></p><div id="lab-advice-result"></div>
+          <div class="lab-ai-row lab-ref-row"><label class="pill-button subtle lab-file-inline" for="lab-ref-import">Upload a reference</label><input id="lab-ref-import" type="file" accept="audio/*" hidden><span id="lab-ref-status" class="lab-note"></span></div></details>
         <section class="lab-card lab-player">
-          <div class="lab-wave-label">PROCESSED · EQ + EFFECTS <span id="lab-render-status"></span></div><canvas id="lab-wave-processed" class="lab-wave" aria-label="Forma d’onda elaborata, clic per spostarti"></canvas>
+          <div class="lab-wave-label">PROCESSED · EQ + EFFECTS <span id="lab-render-status"></span></div><canvas id="lab-wave-processed" class="lab-wave" aria-label="Processed waveform, click to seek"></canvas>
           <canvas id="lab-ruler" class="lab-ruler" aria-hidden="true"></canvas>
-          <div class="lab-wave-label">ORIGINAL</div><canvas id="lab-wave-original" class="lab-wave" aria-label="Forma d’onda originale, clic per spostarti"></canvas>
+          <div class="lab-wave-label">ORIGINALE</div><canvas id="lab-wave-original" class="lab-wave" aria-label="Original waveform, click to seek"></canvas>
           <div class="lab-transport"><button data-transport="start" aria-label="Start">${svg('start')}</button><button data-transport="back" aria-label="Back 10 seconds">${svg('back')}</button><button id="lab-play" class="lab-play" aria-label="Play">${svg('play')}</button><button data-transport="stop" aria-label="Stop">${svg('stop')}</button><button data-transport="forward" aria-label="Forward 10 seconds">${svg('forward')}</button><button data-transport="end" aria-label="Last 10 seconds">${svg('end')}</button><span id="lab-clock" class="lab-clock">0:00 / 0:00</span></div>
-          <div class="lab-monitor-row"><label class="lab-check"><input id="lab-match" type="checkbox" checked> Level compensato</label><span class="lab-hint-inline">Listening</span><div class="lab-monitor" role="group" aria-label="Che cosa ascolti">${Object.entries(
+          <div class="lab-monitor-row"><label class="lab-check"><input id="lab-match" type="checkbox" checked> Loudness-matched</label><span class="lab-hint-inline">Listening</span><div class="lab-monitor" role="group" aria-label="What you hear">${Object.entries(
             MONITOR
           )
             .map(([k, v]) => `<button data-monitor="${k}">${v}</button>`)
             .join('')}</div></div>
           <p id="lab-level-note" class="lab-note"></p>
-          <div class="lab-wave-label">MONITOR DI SPETTRO <span class="lab-hint-inline"><b class="lab-key-proc"></b>elaborato <b class="lab-key-orig"></b>originale</span></div><canvas id="lab-spectrum" class="lab-spectrum" aria-hidden="true"></canvas></section>
+          <div class="lab-wave-label">SPECTRUM MONITOR <span class="lab-hint-inline"><b class="lab-key-proc"></b>processed <b class="lab-key-orig"></b>original</span></div><canvas id="lab-spectrum" class="lab-spectrum" aria-hidden="true"></canvas></section>
         <section class="lab-card lab-output"><div class="lab-output-grid">
-          <div><label for="lab-target">Loudness obiettivo</label><select id="lab-target">${options(LOUDNESS)}</select></div>
-          <div><label for="lab-ceiling">Limite di picco</label><select id="lab-ceiling">${options(PEAKS)}</select></div>
-          <div><label for="lab-metadata">Metadati</label><select id="lab-metadata">${options([
-            ['keep', 'Conserva titolo e tag'],
+          <div><label for="lab-target">Target loudness</label><select id="lab-target">${options(LOUDNESS)}</select></div>
+          <div><label for="lab-ceiling">Peak limit</label><select id="lab-ceiling">${options(PEAKS)}</select></div>
+          <div><label for="lab-metadata">Metadata</label><select id="lab-metadata">${options([
+            ['keep', 'Keep title and tags'],
             ['strip', 'Remove all tags'],
           ])}</select></div>
-          <div class="lab-export-box"><button id="lab-export" class="pill-button lab-export">Export master</button><label class="lab-check"><input id="lab-to-library" type="checkbox" checked> Add to library</label></div></div>
-          <p class="lab-note">Real-time playback uses the same processing chain as the master export. Export adds loudness normalization and a true-peak limiter, then saves 24-bit FLAC and 320 kbps MP3.</p>
+          <div class="lab-export-box"><button id="lab-export" class="pill-button lab-export">Export master</button><label class="lab-check"><input id="lab-to-library" type="checkbox" checked> Add to the library</label></div></div>
+          <p class="lab-note">Real-time listening uses the same chain as the master. The export adds normalisation to the chosen loudness and the true peak limiter, then saves 24-bit FLAC and 320 kbps MP3.</p>
           <div id="lab-masters" class="lab-masters"></div></section>
         <details class="lab-card"><summary>All measurements</summary><div class="lab-table-wrap"><table id="lab-table" class="lab-table"></table></div>
-          <p class="lab-note">EBU R128 / ITU-R BS.1770 loudness and true peak with 4× oversampling; LRA follows EBU Tech 3342. Tempo and key are estimates. Measurements alone do not prove a musical improvement; listen and decide.</p></details>
+          <p class="lab-note">Loudness EBU R128 / ITU-R BS.1770 and true peak with 4× oversampling; LRA per EBU Tech 3342. Tempo and key are estimates. Measurements alone do not prove a musical improvement: listening decides.</p></details>
       </div>
     </div>
-    <aside class="lab-side" id="lab-facts-column"><section class="lab-card"><div class="lab-card-title">Analisi in ingresso</div><div id="lab-facts"><p class="lab-note">No track analyzed.</p></div></section></aside>
+    <aside class="lab-side" id="lab-facts-column"><section class="lab-card"><div class="lab-card-title">Input analysis</div><div id="lab-facts"><p class="lab-note">No song analysed.</p></div></section></aside>
   </div>`;
   const $ = id => panel.querySelector('#' + id);
   let state = {},
@@ -268,7 +262,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     $('lab-width-value').textContent =
       Math.round(Number($('lab-width').value) * 100) +
       '%' +
-      (Number($('lab-width').value) === 1 ? ' · originale' : '');
+      (Number($('lab-width').value) === 1 ? ' · original' : '');
   }
   function changed() {
     labels();
@@ -287,7 +281,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
         .map(([k, [label]]) => `<option value="builtin:${k}">${label}</option>`)
         .join('') +
       (Object.keys(custom).length
-        ? `<optgroup label="I tuoi preset">${Object.keys(custom)
+        ? `<optgroup label="Your presets">${Object.keys(custom)
             .map(name => `<option value="custom:${esc(name)}">${esc(name)}</option>`)
             .join('')}</optgroup>`
         : '');
@@ -424,7 +418,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
   async function decode(name, route) {
     if (buffers[name]) return buffers[name];
     bytes[route] ??= await fetch(route).then(r => {
-      if (!r.ok) throw new Error('Audio unavailable.');
+      if (!r.ok) throw new Error('Audio not available.');
       return r.arrayBuffer();
     });
     buffers[name] = await ctx.decodeAudioData(bytes[route].slice(0));
@@ -551,9 +545,9 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
   }
   async function setMonitor(name) {
     if (name === 'master' && !(await loadExtra('master')))
-      return toast('Export a master before listening here.');
+      return toast('Export a master first to listen to it here.');
     if (name === 'reference' && !(await loadExtra('reference')))
-      return toast('Load a reference track first.');
+      return toast('Upload a reference song first.');
     monitor = name;
     panel
       .querySelectorAll('[data-monitor]')
@@ -601,14 +595,14 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     }
     const exportGain = Number.isFinite(L.processed) ? L.target - L.processed : null;
     $('lab-level-note').textContent = match
-      ? `Loudness-matched playback: all sources use the same loudness (${number(floor)} LUFS), so louder audio does not win the comparison.`
-      : `Original level versus processed level at ${number(L.target)} LUFS, as in the export${exportGain != null ? ` (${signed(exportGain)} dB)` : ''}. A safety limiter prevents distortion during playback.`;
+      ? `Level-matched: all sources at the same loudness (${number(floor)} LUFS), so the comparison does not favour the louder one.`
+      : `Real levels: original as it is, processed brought to ${number(L.target)} LUFS as in the export${exportGain != null ? ` (${signed(exportGain)} dB)` : ''}. A safety limiter prevents distortion while listening.`;
     renderFacts(true);
   }
   function scheduleRender(delay = 600) {
     clearTimeout(renderTimer);
     if (!buffers.original) return;
-    $('lab-render-status').textContent = '· aggiornamento…';
+    $('lab-render-status').textContent = '· updating…';
     renderTimer = setTimeout(async () => {
       const token = ++renderToken,
         v = values(),
@@ -635,11 +629,11 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
         processedPeak = peak;
         buffers.processedPreview = out;
         delete peakCache.processed;
-        $('lab-render-status').textContent = `· ${number(processedLufs)} LUFS before normalization`;
+        $('lab-render-status').textContent = `· ${number(processedLufs)} LUFS before normalisation`;
         updateLevels();
         drawAll();
       } catch (e) {
-        if (token === renderToken) $('lab-render-status').textContent = '· anteprima grafica unavailable';
+        if (token === renderToken) $('lab-render-status').textContent = '· graphic preview not available';
         console.warn(e);
       }
     }, delay);
@@ -771,7 +765,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     }
     setBalance(
       sums.map((v, i) => v / counts[i]),
-      'live, elaborato',
+      'live, processed',
       -140,
       100
     );
@@ -791,7 +785,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     const s = session(),
       a = s?.analysis;
     if (!a) {
-      $('lab-facts').innerHTML = '<p class="lab-note">No track analyzed.</p>';
+      $('lab-facts').innerHTML = '<p class="lab-note">No song analysed.</p>';
       factsSig = '';
       return;
     }
@@ -806,25 +800,21 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
       target = values().targetLufs;
     const row = (k, v) => `<div class="lab-fact"><span>${k}</span><b>${v}</b></div>`;
     $('lab-facts').innerHTML =
-      `<div class="lab-big"><b>${number(l.integrated)} LUFS</b><span>Loudness integrata</span></div><div class="lab-big"><b>${number(l.truePeak)} dBTP</b><span>True peak</span></div>
-      ${processedLufs != null ? `<div class="lab-sub-title">Elaborato · stima in tempo reale</div>${row('Before normalization', number(processedLufs) + ' LUFS')}${row('Sample peak', number(20 * Math.log10(processedPeak || 1e-9)) + ' dBFS')}${row('Export gain', signed(target - processedLufs) + ' dB')}` : ''}
-      <div class="lab-sub-title">File metadata</div>${row('Title', esc(tags.title || s.title))}${row('Artist', esc(tags.artist || '—'))}${row('Format', esc((t.codec || '').toUpperCase()))}${row('Sample rate', (t.sampleRate / 1000).toLocaleString('en-GB') + ' kHz')}${row('Bit', t.bitDepth || '—')}${row('Duration', number(t.duration, 1) + ' s')}
-      <div class="lab-sub-title">Music analysis</div><div class="lab-music"><div><b>${m?.bpm ? number(m.bpm, 0) : '—'}</b><span>BPM</span></div><div><b>${esc(m?.key || '—')}</b><span>KEY</span>${m?.keyAlternative ? `<small title="The two keys are very close; check by listening">or ${esc(m.keyAlternative)}</small>` : ''}</div></div>
+      `<div class="lab-big"><b>${number(l.integrated)} LUFS</b><span>Integrated loudness</span></div><div class="lab-big"><b>${number(l.truePeak)} dBTP</b><span>True peak</span></div>
+      ${processedLufs != null ? `<div class="lab-sub-title">Processed · real-time estimate</div>${row('Before normalisation', number(processedLufs) + ' LUFS')}${row('Sample peak', number(20 * Math.log10(processedPeak || 1e-9)) + ' dBFS')}${row('Export gain', signed(target - processedLufs) + ' dB')}` : ''}
+      <div class="lab-sub-title">File metadata</div>${row('Title', esc(tags.title || s.title))}${row('Artist', esc(tags.artist || '—'))}${row('Format', esc((t.codec || '').toUpperCase()))}${row('Sample rate', (t.sampleRate / 1000).toLocaleString('it-IT') + ' kHz')}${row('Bit', t.bitDepth || '—')}${row('Duration', number(t.duration, 1) + ' s')}
+      <div class="lab-sub-title">Musical analysis</div><div class="lab-music"><div><b>${m?.bpm ? number(m.bpm, 0) : '—'}</b><span>BPM</span></div><div><b>${esc(m?.key || '—')}</b><span>KEY</span>${m?.keyAlternative ? `<small title="The two keys are very close: check by listening">or ${esc(m.keyAlternative)}</small>` : ''}</div></div>
       <div class="lab-sub-title">Mix integrity</div>${row('Headroom', number(-l.truePeak) + ' dB')}${row('Noise floor', number(i.noiseFloor) + ' dBFS')}${row('DC offset', number(i.dcOffset, 3) + '%')}${row('Clipped sections', i.clippedRuns)}${row('Loudness range', number(l.lra) + ' LU')}${row('PLR', number(l.plr) + ' dB')}`;
   }
   function renderTable(s) {
     const m = s.renders[0],
       ref = s.reference?.analysis,
-      cols = [
-        ['Original', s.analysis],
-        ['Ultimo master', m?.analysis],
-        ...(ref ? [['Reference', ref]] : []),
-      ];
+      cols = [['Original', s.analysis], ['Latest master', m?.analysis], ...(ref ? [['Reference', ref]] : [])];
     const sig = JSON.stringify([s.id, s.analyzedAt, m?.id, s.reference?.createdAt]);
     if (sig === tableSig) return;
     tableSig = sig;
     $('lab-table').innerHTML =
-      `<thead><tr><th>Bar</th>${cols.map(([n]) => `<th>${n}</th>`).join('')}</tr></thead><tbody>${ROWS.map(
+      `<thead><tr><th>Measurement</th>${cols.map(([n]) => `<th>${n}</th>`).join('')}</tr></thead><tbody>${ROWS.map(
         ([label, key, unit, digits = 1]) =>
           `<tr><th>${label}</th>${cols
             .map(([, a]) => {
@@ -835,7 +825,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
       ).join('')}</tbody>`;
   }
   function settingsText(v) {
-    return `EQ ${v.eq.map(x => signed(x, x % 1 ? 1 : 0)).join(' ')} · compressore ${MODE_LABELS.compressor[v.compressor].split(' ·')[0].toLowerCase()} · ampiezza ${Math.round(v.width * 100)}% · riverbero ${MODE_LABELS.reverb[v.reverb].toLowerCase()} · ${number(v.targetLufs)} LUFS · ${number(v.ceiling)} dBTP`;
+    return `EQ ${v.eq.map(x => signed(x, x % 1 ? 1 : 0)).join(' ')} · compressor ${MODE_LABELS.compressor[v.compressor].split(' ·')[0].toLowerCase()} · width ${Math.round(v.width * 100)}% · reverb ${MODE_LABELS.reverb[v.reverb].toLowerCase()} · ${number(v.targetLufs)} LUFS · ${number(v.ceiling)} dBTP`;
   }
   function renderMasters(s) {
     const inLibrary = r => !!r.libraryJobId && !!state.jobs?.some(j => j.id === r.libraryJobId);
@@ -845,11 +835,11 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     $('lab-masters').innerHTML = s.renders.length
       ? s.renders
           .map(
-            r => `<div class="lab-master ${r.id === masterId ? 'selected' : ''}"><div><strong>${date(r.savedAt || r.createdAt)} · ${number(r.loudness?.reached)} LUFS · ${number(r.loudness?.truePeak)} dBTP${Math.abs(r.loudness?.gap ?? 0) > 0.5 ? ` · <em>deviation ${number(r.loudness.gap)} LU: peak limit took precedence</em>` : ''}</strong><span class="lab-note">${esc(settingsText(r.settings))}</span></div>
-      <div class="lab-master-actions"><button class="lab-mini" data-master-listen="${r.id}">Listen</button><button class="lab-mini" data-master-apply="${r.id}">Use settings</button><a class="lab-mini" href="${route(s, 'render', r.id)}&download=1">FLAC</a>${r.mp3 ? `<a class="lab-mini" href="${route(s, 'render', r.id)}&format=mp3&download=1">MP3</a>` : ''}${inLibrary(r) ? '<span class="lab-mini lab-in-library">In library ✓</span>' : `<button class="lab-mini" data-master-library="${r.id}">Add to library</button>`}<button class="lab-mini" data-master-delete="${r.id}">Delete</button></div>${r.libraryError ? `<p class="error">Not added to the library: ${esc(r.libraryError)}</p>` : ''}</div>`
+            r => `<div class="lab-master ${r.id === masterId ? 'selected' : ''}"><div><strong>${date(r.savedAt || r.createdAt)} · ${number(r.loudness?.reached)} LUFS · ${number(r.loudness?.truePeak)} dBTP${Math.abs(r.loudness?.gap ?? 0) > 0.5 ? ` · <em>gap ${number(r.loudness.gap)} LU: the peak limit prevailed</em>` : ''}</strong><span class="lab-note">${esc(settingsText(r.settings))}</span></div>
+      <div class="lab-master-actions"><button class="lab-mini" data-master-listen="${r.id}">Listen</button><button class="lab-mini" data-master-apply="${r.id}">Use settings</button><a class="lab-mini" href="${route(s, 'render', r.id)}&download=1">FLAC</a>${r.mp3 ? `<a class="lab-mini" href="${route(s, 'render', r.id)}&format=mp3&download=1">MP3</a>` : ''}${inLibrary(r) ? '<span class="lab-mini lab-in-library">In library ✓</span>' : `<button class="lab-mini" data-master-library="${r.id}">Add to the library</button>`}<button class="lab-mini" data-master-delete="${r.id}">Delete</button></div>${r.libraryError ? `<p class="error">Not added to the library: ${esc(r.libraryError)}</p>` : ''}</div>`
           )
           .join('')
-      : '<p class="lab-note">No master exported yet. Adjust the sound while listening, then select Export master.</p>';
+      : '<p class="lab-note">No master exported. Adjust while listening, then press Export master.</p>';
   }
   // What applying the proposal would change, compared with the controls as they are now.
   function adviceChanges(a) {
@@ -864,17 +854,16 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     });
     if (p.compressor !== v.compressor)
       out.push(
-        `compressore ${MODE_LABELS.compressor[v.compressor].split(' ·')[0].toLowerCase()} → ${MODE_LABELS.compressor[p.compressor].split(' ·')[0].toLowerCase()}`
+        `compressor ${MODE_LABELS.compressor[v.compressor].split(' ·')[0].toLowerCase()} → ${MODE_LABELS.compressor[p.compressor].split(' ·')[0].toLowerCase()}`
       );
-    if (p.width !== v.width)
-      out.push(`ampiezza ${Math.round(v.width * 100)}% → ${Math.round(p.width * 100)}%`);
+    if (p.width !== v.width) out.push(`width ${Math.round(v.width * 100)}% → ${Math.round(p.width * 100)}%`);
     if (p.reverb !== v.reverb)
       out.push(
-        `riverbero ${MODE_LABELS.reverb[v.reverb].toLowerCase()} → ${MODE_LABELS.reverb[p.reverb].toLowerCase()}`
+        `reverb ${MODE_LABELS.reverb[v.reverb].toLowerCase()} → ${MODE_LABELS.reverb[p.reverb].toLowerCase()}`
       );
     if (p.targetLufs !== v.targetLufs)
       out.push(`loudness ${number(v.targetLufs)} → ${number(p.targetLufs)} LUFS`);
-    if (p.ceiling !== v.ceiling) out.push(`ceiling ${number(v.ceiling)} → ${number(p.ceiling)} dBTP`);
+    if (p.ceiling !== v.ceiling) out.push(`limit ${number(v.ceiling)} → ${number(p.ceiling)} dBTP`);
     return out;
   }
   function adviceView(s) {
@@ -886,16 +875,16 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     }
     const changes = adviceChanges(a),
       eqUntouched = a.settings.eq.every(x => x === 0);
-    box.innerHTML = `<div class="lab-advice"><p class="lab-note">${a.heard ? `${esc(a.provider || 'AI')} listened to an excerpt and reviewed the measurements` : `${esc(a.provider || 'AI')} reviewed measurements only, without listening`}</p><p>${esc(a.summary)}</p>${a.observations.length ? `<ul>${a.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
-      <p class="lab-note"><b>Proposta:</b> ${esc(settingsText(a.settings))}${eqUntouched ? ' · AI does not suggest EQ changes' : ''}</p>
-      <p class="lab-note">${changes.length ? '<b>Changes if applied:</b> ' + changes.map(esc).join(' · ') : '<b>This suggestion already matches your settings:</b> applying it would not change anything. Ask again with a more specific goal.'}</p>
-      ${a.listening.length ? `<p class="lab-note">Check by listening: ${a.listening.map(esc).join(' · ')}</p>` : ''}
-      <div class="lab-ai-row"><button id="lab-apply" class="pill-button" ${changes.length ? '' : 'disabled'}>${changes.length ? 'Apply AI suggestions' : 'Nothing to apply'}</button><span class="lab-note">Changes take effect immediately. Compare with the original before exporting. ${date(a.createdAt)}</span></div></div>`;
+    box.innerHTML = `<div class="lab-advice"><p class="lab-note">${a.heard ? `${esc(a.provider || 'AI')} listened to an excerpt and read the measurements` : `${esc(a.provider || 'AI')} read only the measurements, without listening`}</p><p>${esc(a.summary)}</p>${a.observations.length ? `<ul>${a.observations.map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+      <p class="lab-note"><b>Proposal:</b> ${esc(settingsText(a.settings))}${eqUntouched ? ' · the AI proposes no EQ corrections' : ''}</p>
+      <p class="lab-note">${changes.length ? '<b>Applying would change:</b> ' + changes.map(esc).join(' · ') : '<b>The proposal already matches your settings:</b> applying it would change nothing. You can ask again with a more specific goal.'}</p>
+      ${a.listening.length ? `<p class="lab-note">To check by listening: ${a.listening.map(esc).join(' · ')}</p>` : ''}
+      <div class="lab-ai-row"><button id="lab-apply" class="pill-button" ${changes.length ? '' : 'disabled'}>${changes.length ? 'Apply AI suggestions' : 'Nothing to apply'}</button><span class="lab-note">You will hear them straight away: compare with the original before exporting. ${date(a.createdAt)}</span></div></div>`;
     $('lab-apply').addEventListener('click', () => {
       const n = adviceChanges(a).length;
       setValues(a.settings);
       toast(
-        `Suggerimenti applicati (${n} ${n === 1 ? 'edit' : 'modifiche'}): li stai ascoltando in tempo reale.`
+        `Suggestions applied (${n} ${n === 1 ? 'change' : 'changes'}): you are listening to them in real time.`
       );
     });
   }
@@ -924,12 +913,12 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     });
     const imports = (state.audioLab?.sessions || []).filter(s => s.source.kind === 'import');
     return (
-      '<option value="">Choose audio to master</option>' +
+      '<option value="">Choose what to master</option>' +
       (jobs.length
         ? `<optgroup label="Library">${jobs.map(j => `<option value="job:${j.id}">${esc(j.title)}</option>`).join('')}</optgroup>`
         : '') +
       (mixes.length
-        ? `<optgroup label="Mixes exported from editor">${mixes.map(({ job, mix, n }) => `<option value="mix:${job.id}:${mix.id}">${esc(job.title)} · mix ${n} · ${date(mix.createdAt)}</option>`).join('')}</optgroup>`
+        ? `<optgroup label="Mixes exported from the editor">${mixes.map(({ job, mix, n }) => `<option value="mix:${job.id}:${mix.id}">${esc(job.title)} · mix ${n} · ${date(mix.createdAt)}</option>`).join('')}</optgroup>`
         : '') +
       (imports.length
         ? `<optgroup label="Uploaded files">${imports.map(s => `<option value="session:${s.id}">${esc(s.title)}${s.status === 'failed' && !s.analysis ? ' · failed' : ''}</option>`).join('')}</optgroup>`
@@ -972,7 +961,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     render(state);
   }
   async function upload(url, file) {
-    if (file.size > 150 * 1024 * 1024) throw new Error('The file is larger than 150 MB.');
+    if (file.size > 150 * 1024 * 1024) throw new Error('The file exceeds 150 MB.');
     const r = await fetch(url, {
       method: 'POST',
       headers: {
@@ -1000,15 +989,15 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
       working = busy(s),
       advising = state.audioLab?.advising?.includes(s?.id);
     $('lab-status').textContent = !state.audioLab?.available
-      ? 'Local Python environment not found. See the README.'
+      ? 'Local Python environment not found: see the README.'
       : !s
         ? $('lab-source').value
-          ? 'Preparing session…'
-          : 'Choose a track from your library, an editor mix or upload a file (up to 150 MB and 10 minutes).'
+          ? 'Preparing the session…'
+          : 'Choose a song from the library, a mix from the editor, or upload a file (up to 150 MB and 10 minutes).'
         : working
           ? s.phase
           : s.analysis
-            ? `${s.title} · analyzed${s.phase === 'cancelled' ? ' · last process cancelled' : ''}`
+            ? `${s.title} · analysed${s.phase === 'Cancelled' ? ' · last processing cancelled' : ''}`
             : s.phase || 'Waiting';
     $('lab-error').hidden = !s?.error;
     $('lab-error').textContent = s?.error || '';
@@ -1027,30 +1016,30 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     }
     if (!masterId || !s.renders.some(r => r.id === masterId)) masterId = s.renders[0]?.id || null;
     $('lab-export').disabled = working;
-    $('lab-export').textContent = working && s.task === 'render' ? 'Esportazione…' : 'Export master';
+    $('lab-export').textContent = working && s.task === 'render' ? 'Exporting…' : 'Export master';
     panel.querySelector('[data-monitor="master"]').disabled = !s.renders.length;
     panel.querySelector('[data-monitor="reference"]').disabled = !s.reference;
     $('lab-advice').disabled = working || advising || !aiAvailable;
-    $('lab-advice').textContent = advising ? 'Request in progress…' : 'Ask AI for suggestions';
+    $('lab-advice').textContent = advising ? 'Request in progress…' : 'Ask for AI suggestions';
     $('lab-ai-status').textContent = aiAvailable
       ? ''
-      : 'Configure AI in Prompt and lyrics to use suggestions.';
+      : 'Set up AI in the Prompt and lyrics assistant to use the suggestions.';
     $('lab-ai-provider').textContent = aiInfo.available
       ? `${aiInfo.providerName} · ${aiInfo.canListen && $('lab-listen').checked ? aiInfo.listenModel : aiInfo.model}`
       : 'not configured';
     $('lab-listen-row').hidden = !aiInfo.canListen;
     $('lab-ai-explain').textContent =
       aiInfo.canListen && $('lab-listen').checked
-        ? `${aiInfo.providerName} receives measurements, settings and an audio excerpt to listen to. This runs only when you select the button.`
-        : `${aiInfo.providerName || 'L’AI'} receives measurements and settings only, not audio. This runs only when you select the button.`;
+        ? `${aiInfo.providerName} receives the measurements, the settings and an audio excerpt that it really listens to. It only starts when you press the button.`
+        : `${aiInfo.providerName || 'L’AI'} receives only the measurements and the settings, not the audio. It only starts when you press the button.`;
     const sig = JSON.stringify([s.id, s.advice?.createdAt]);
     if (sig !== adviceSig) {
       adviceSig = sig;
       adviceView(s);
     }
     $('lab-ref-status').textContent = s.reference
-      ? `Reference: ${s.reference.label} · ${number(s.reference.analysis?.loudness?.integrated)} LUFS · listen using Monitor → Reference`
-      : 'Optional: a track whose sound you like, for comparison by listening and measurement.';
+      ? `Reference: ${s.reference.label} · ${number(s.reference.analysis?.loudness?.integrated)} LUFS · listen to it with Listening → Reference`
+      : 'Optional: a song with a sound you like, to compare by listening and in the measurements.';
     $('lab-ref-import').disabled = working;
     renderFacts();
     renderTable(s);
@@ -1061,7 +1050,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
           const v = o.filter(x => x.hz >= lo && x.hz < hi).map(x => x.db);
           return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
         };
-      setBalance([avg(20, 250), avg(250, 4000), avg(4000, 20001)], 'dall’analisi', -25, 40);
+      setBalance([avg(20, 250), avg(250, 4000), avg(4000, 20001)], 'from the analysis', -25, 40);
     }
     if (active) void loadSession(s);
   }
@@ -1135,8 +1124,8 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
       await api(`/api/audio-lab/${sessionId}/preview`, 'POST', { ...values(), toLibrary });
       toast(
         toLibrary
-          ? 'Exporting master. It will also appear in the library when ready.'
-          : 'Exporting master to FLAC and MP3.'
+          ? 'Master export in progress: when it finishes you will also find it in the Library.'
+          : 'Master export in progress: FLAC and MP3.'
       );
     } catch (e) {
       toast(e.message);
@@ -1158,7 +1147,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
           'POST',
           {}
         );
-        toast(`Added to library: ${job.title}.`);
+        toast(`Added to the library: ${job.title}.`);
       } catch (err) {
         toast(err.message);
       }
@@ -1200,7 +1189,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
   $('lab-remove').addEventListener('click', async () => {
     if (
       !confirm(
-        'Remove this session? Masters and files uploaded to Audio Lab will be deleted. Library tracks and editor mixes will stay.'
+        'Remove this session? The masters and the files uploaded to Audio Lab will be deleted. Library songs and editor mixes stay untouched.'
       )
     )
       return;
@@ -1211,7 +1200,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
       loadedSession = null;
       buffers = {};
       $('lab-source').value = '';
-      toast('Sessione Audio Lab rimossa.');
+      toast('Audio Lab session removed.');
       render(state);
     } catch (e) {
       toast(e.message);
@@ -1225,10 +1214,10 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
         settings: values(),
         listen: $('lab-listen').checked,
       });
-      toast('Suggerimenti AI pronti.');
+      toast('AI suggestions ready.');
     } catch (e) {
       toast(e.message);
-      if (/key/i.test(e.message)) await refreshAi();
+      if (/chiave/i.test(e.message)) await refreshAi();
     } finally {
       render(state);
     }
@@ -1243,7 +1232,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
       appliedSession = null;
       loadedSession = null;
       sourceOptions = '';
-      toast('File received. Import and analysis are starting.');
+      toast('File received: import and analysis in progress.');
       render(state);
     } catch (e) {
       toast(e.message);
@@ -1257,7 +1246,7 @@ export function initAudioLab({ api, toast, pauseLibrary, openView }) {
     try {
       await upload(`/api/audio-lab/${sessionId}/reference`, file);
       delete buffers.reference;
-      toast('Reference received. Analysis is in progress.');
+      toast('Reference received: analysis in progress.');
     } catch (e) {
       toast(e.message);
     } finally {

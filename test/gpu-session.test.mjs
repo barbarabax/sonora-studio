@@ -27,7 +27,7 @@ test('GPU session records a fixed expiry, survives restart and retries uncertain
   let session = createGpuSession(options);
   await session.start();
   assert.equal(min, 1);
-  await assert.rejects(session.start(), /current session/);
+  await assert.rejects(session.start(), /End the current session/);
   session = createGpuSession(options);
   now = 1800999;
   await session.reconcile();

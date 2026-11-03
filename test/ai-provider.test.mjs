@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { createPromptAI } from '../prompt-ai.mjs';
+import { createPromptAI, lyricsPlan } from '../prompt-ai.mjs';
 import { createAudioLab } from '../audio-lab.mjs';
 import { createStudio } from '../server.mjs';
 import { excerptWindow, excerpt, probeDuration } from '../ai-audio.mjs';
@@ -66,8 +66,8 @@ test('OpenAI key setup lists models, picks sensible defaults, stores the key enc
   const { calls, fetchImpl } = openai('{}');
   const ai = createPromptAI({ credentialsFile }, { fetchImpl, protector });
   assert.equal(ai.status().provider, 'deepseek');
-  await assert.rejects(ai.configure({ provider: 'openai' }), /Enter a OpenAI API key first/);
-  await assert.rejects(ai.configure({ provider: 'openai', apiKey: 'short' }), /valid OpenAI API key/);
+  await assert.rejects(ai.configure({ provider: 'openai' }), /Enter the OpenAI API/);
+  await assert.rejects(ai.configure({ provider: 'openai', apiKey: 'short' }), /Enter a valid OpenAI/);
   const status = await ai.configure({ provider: 'openai', apiKey: KEY });
   assert.equal(calls[0].url, 'https://api.openai.com/v1/models');
   assert.equal(calls[0].auth, 'Bearer ' + KEY);
@@ -85,7 +85,7 @@ test('OpenAI key setup lists models, picks sensible defaults, stores the key enc
   assert.ok(!saved.includes(KEY) && !saved.includes('deepseek-fake-key'), 'both keys are stored encrypted');
   await assert.rejects(
     ai.configure({ provider: 'openai', textModel: 'gpt-imaginary' }),
-    /cannot access the OpenAI text model/
+    /OpenAI text model not/
   );
   assert.equal(
     (await ai.configure({ provider: 'openai', textModel: 'gpt-6-luna-mini', audioModel: null })).canListen,
@@ -147,10 +147,7 @@ test('OpenAI text requests use the chosen model without custom temperature; audi
     { section: 'Verse', seconds: null },
   ]);
   await ai.configure({ provider: 'deepseek', apiKey: 'deepseek-fake-key-123456789' });
-  await assert.rejects(
-    ai.listen({ audio: [{ data: 'x', format: 'wav' }], duration: 10 }),
-    /select OpenAI/
-  );
+  await assert.rejects(ai.listen({ audio: [{ data: 'x', format: 'wav' }], duration: 10 }), /choose OpenAI/);
 });
 
 test('Audio Lab sends excerpts to a listening model, and only measurements when listening is off', async t => {
@@ -297,4 +294,85 @@ test('excerpt windows stay inside the track, and FFmpeg produces a mono WAV exce
   assert.equal(wav.readUInt16LE(22), 1, 'mono');
   assert.equal(wav.readUInt32LE(24), 24000, '24 kHz');
   assert.ok(Math.abs(wav.length - 44 - 2 * 24000 * 2) < 2000, 'about two seconds of 16-bit audio');
+});
+
+test('lyrics that fit an existing song: the line count follows tempo and length, one retry when far off', async t => {
+  // A slow song gets fewer, longer lines than a fast one of the same length.
+  const slow = lyricsPlan(120, 70, '4'),
+    fast = lyricsPlan(120, 140, '4');
+  assert.ok(slow.lines < fast.lines);
+  assert.ok(slow.syllables >= fast.syllables);
+  assert.deepEqual(lyricsPlan(20, 120, '4').structure, ['Verse', 'Chorus']);
+  assert.equal(lyricsPlan(240, 100, '4').structure.at(-1), 'Outro');
+  assert.equal(lyricsPlan(120, 90, '6').lines, lyricsPlan(120, 90, '3').lines);
+
+  const dir = tmp(t),
+    credentialsFile = path.join(dir, 'prompt-ai.json');
+  const sheet = lines =>
+    '[Verse]\n' + Array.from({ length: lines }, (_, i) => `Riga numero ${i + 1} qui`).join('\n');
+  let drafts = [sheet(2), sheet(18)];
+  const { calls, fetchImpl } = openai(() => drafts.shift() ?? sheet(18));
+  const ai = createPromptAI({ credentialsFile }, { fetchImpl, protector });
+  await assert.rejects(ai.fitLyrics({ tags: 'indie pop' }), /not configured/);
+  await ai.configure({ provider: 'openai', apiKey: KEY });
+  calls.length = 0;
+  const plan = lyricsPlan(90, 100, '4');
+  drafts = [sheet(2), sheet(plan.lines)];
+  const result = await ai.fitLyrics({
+    tags: 'warm indie pop, soft female vocals',
+    language: 'Italian',
+    bpm: 100,
+    timesignature: '4',
+    keyscale: 'A minor',
+    duration: 90,
+  });
+  assert.equal(calls.filter(c => c.body?.messages).length, 2, 'a draft of 2 lines is retried once');
+  assert.equal(result.lines, plan.lines, 'the closer draft wins');
+  assert.equal(result.plannedLines, plan.lines);
+  const asked = calls
+    .find(c => c.body?.messages)
+    .body.messages.map(m => m.content)
+    .join('\n');
+  assert.match(asked, /warm indie pop/);
+  assert.match(asked, /100 BPM/);
+  assert.match(asked, new RegExp(`write ${plan.lines} sung lines`));
+  await assert.rejects(ai.fitLyrics({ tags: '' }), /style of the song/);
+  await assert.rejects(ai.fitLyrics({ tags: 'pop', duration: 5 }), /Invalid duration\./);
+  await assert.rejects(ai.fitLyrics({ tags: 'pop', bpm: 500 }), /Invalid tempo\./);
+  await assert.rejects(ai.fitLyrics({ tags: 'pop', timesignature: '9' }), /Invalid meter\./);
+});
+
+test('the form helpers: lyrics can come from the style prompt alone, and YuE2 gets its own target without ACE-Step delivery cues', async t => {
+  const dir = tmp(t),
+    credentialsFile = path.join(dir, 'prompt-ai.json');
+  const { calls, fetchImpl } = openai(call =>
+    /STYLE prompt/.test(call.body.messages.at(-1).content)
+      ? JSON.stringify({ boostedPrompt: 'Reggae, warm bass', strategy: [], exclude: '' })
+      : '[Verse]\nRain on the road\n\n[Chorus]\nTake me home'
+  );
+  const ai = createPromptAI({ credentialsFile }, { fetchImpl, protector });
+  await ai.configure({ provider: 'openai', apiKey: KEY });
+  const sent = () => calls.at(-1).body.messages.at(-1).content;
+
+  await ai.boost({ basePrompt: 'reggae', engine: 'yue2' });
+  assert.match(sent(), /for YuE2, without writing lyrics/);
+  await ai.boost({ basePrompt: 'reggae' });
+  assert.match(sent(), /for ACE-Step 1\.5, without writing lyrics/);
+
+  await assert.rejects(ai.lyrics({ mode: 'write' }), /idea of the song or the style/);
+  const yue = await ai.lyrics({
+    mode: 'write',
+    musicalContext: 'reggae, conscious reggae',
+    language: 'English',
+    duration: 180,
+    engine: 'yue2',
+  });
+  assert.match(sent(), /Target: YuE2 music generation/);
+  assert.match(sent(), /your own original idea that fits the musical context/);
+  assert.ok(!/Delivery cues/.test(sent()));
+  assert.match(yue.lyrics, /\[Verse\]/);
+  await ai.lyrics({ mode: 'write', musicalContext: 'reggae', concept: 'a night bus', duration: 60 });
+  assert.match(sent(), /Target: ACE-Step 1\.5 music generation/);
+  assert.match(sent(), /Idea: a night bus/);
+  assert.match(sent(), /Delivery cues/);
 });

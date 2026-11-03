@@ -2,14 +2,8 @@
 // description: Audio Lab DSP shared with the Python engine: filter coefficients, reverb impulse and BS.1770 loudness.
 //
 //
-// 
-//
-// 
-//
-// 
-//
 // exports: EQ_BANDS | EQ_Q | EQ_RANGE | HIGH_PASS_HZ | BUTTERWORTH_Q | COMPRESSORS | REVERBS | IR_LOWPASS | IR_HIGHPASS | WET_LOWPASS | NEUTRAL | biquad | qToDb | impulse | integratedLufs
-// used_by: sonora-studio/public/audio-lab-ui.mjs
+// used_by: public/audio-lab-ui.mjs
 // rules:   Must stay numerically identical to audio_lab_dsp.py (test/audio_lab_dsp_test.py cross-checks it).
 // agent:   Claude - 2026-10-04 - Real-time Audio Lab chain matching the offline master.
 export const EQ_BANDS = [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];

@@ -1,18 +1,12 @@
 // @codedna
 // description: Convert Suno Prompt choices to Sonora's supported musical controls and clean lyric sections.
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: sectionOrder | parseStructure | cleanLyrics | toSonora
-// used_by: sonora-studio/public/create-ui.mjs
-//                   sonora-studio/public/prompt-ui.mjs
+// used_by: public/create-ui.mjs
+//                   public/prompt-ui.mjs
 // rules:   Preserve existing lyrics unless the user chooses to transfer a new text. Do not map Suno sliders to ACE-Step.
 // agent:   Codex - 2026-10-04 - Prompt-to-Sonora integration boundary.
 import { effectiveBpm } from './prompt-core.mjs';
@@ -53,7 +47,7 @@ export function cleanLyrics(value) {
 }
 export function toSonora(state, prompt, lyrics = '') {
   if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 3000)
-    throw new Error('The prompt must contain 1 to 3,000 characters.');
+    throw new Error('The prompt must contain 1 to 3000 characters.');
   const result = { tags: prompt.trim() };
   if (state.vocal.length) result.instrumental = state.vocal.includes('instrumental-only');
   // Rules: an exact BPM wins; otherwise the middle of the chosen tempo band, so the composer's BPM box follows the choice.
@@ -61,14 +55,14 @@ export function toSonora(state, prompt, lyrics = '') {
   if (wanted) {
     const bpm = Number(wanted);
     if (!Number.isInteger(bpm) || bpm < 30 || bpm > 250)
-      throw new Error('Sonora supporta BPM interi da 30 a 250.');
+      throw new Error('Sonora supports whole-number BPM from 30 to 250.');
     result.bpm = bpm;
   }
   const key = state.key?.[0]?.replace(/\b(Major|Minor)\b/g, s => s.toLowerCase());
   if (key) result.keyscale = key;
   if (lyrics.trim()) {
     const cleaned = cleanLyrics(lyrics);
-    if (cleaned.length > 12000) throw new Error('Text exceeds 12,000 characters.');
+    if (cleaned.length > 12000) throw new Error('The lyrics exceed 12000 characters.');
     result.lyrics = cleaned;
     result.instrumental = false;
   }

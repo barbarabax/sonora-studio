@@ -1,29 +1,9 @@
 // @codedna
 // description: Personal AI services (DeepSeek or OpenAI) for prompts, lyrics, mastering advice and listening to audio.
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-// 
-//
-// 
-//
-// 
-//
-// exports: windowsProtector | PROVIDERS | lyricsBudget | sungWordCount | createPromptAI
-// used_by: sonora-studio/server.mjs
+// exports: windowsProtector | PROVIDERS | lyricsBudget | lyricsPlan | sungWordCount | createPromptAI
+// used_by: runpod-account.mjs
+//                   server.mjs
 // rules:   Keep credentials server-side. Only make an AI request after an explicit UI action. Audio goes only to providers that can hear it.
 // agent:   Codex - 2026-10-04 - Adapted Suno Prompt AI functions for local Sonora.
 // Claude - 2026-10-05 - OpenAI provider with audio input (gpt-audio) next to DeepSeek.
@@ -41,7 +21,7 @@ function powershell(script, input) {
     ['-NoProfile', '-NonInteractive', '-Command', 'Add-Type -AssemblyName System.Security;' + script],
     { input, encoding: 'utf8', windowsHide: true, timeout: 30000 }
   );
-  if (r.status !== 0) throw new Error('Key protection is unavailable.');
+  if (r.status !== 0) throw new Error('Key protection not available.');
   return r.stdout.trim();
 }
 export const windowsProtector =
@@ -96,6 +76,27 @@ const validModelId = id => typeof id === 'string' && /^[A-Za-z0-9._:-]{1,100}$/.
  */
 export function lyricsBudget(duration) {
   return { target: Math.max(8, Math.round(duration * 0.9)), max: Math.max(12, Math.round(duration * 1.2)) };
+}
+/**
+ * How much lyric text a song of `duration` seconds at `bpm` can carry: about two bars per sung line, with roughly a quarter
+ * of the bars left to intro, breaks and outro (the same shape the duration estimate of the studio assumes).
+ * Rules: pure function; the line count and the syllables per line follow the tempo, so slow songs get fewer, longer lines.
+ */
+export function lyricsPlan(duration, bpm = 110, timesignature = '4') {
+  const beatsPerBar = timesignature === '6' ? 3 : Number(timesignature) || 4;
+  const secondsPerBar = (60 / bpm) * beatsPerBar;
+  const vocalBars = Math.max(4, Math.round((duration / secondsPerBar) * 0.75));
+  const lines = Math.max(2, Math.round(vocalBars / 2));
+  const structure =
+    lines <= 7
+      ? ['Verse', 'Chorus']
+      : lines <= 12
+        ? ['Verse', 'Chorus', 'Verse', 'Chorus']
+        : lines <= 17
+          ? ['Verse', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Chorus']
+          : ['Verse', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Chorus', 'Outro'];
+  const syllables = Math.min(10, Math.max(5, Math.round(2 * secondsPerBar * 2.4)));
+  return { lines, structure, syllables };
 }
 /** Sung words of a lyric sheet: section tags are not words; repeated lines and vocables count. */
 export const sungWordCount = value =>
@@ -222,7 +223,7 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
     if (!response.ok)
       throw new Error(
         response.status === 401
-          ? `${PROVIDERS[name].name} does not recognize this key. Check it and try again.`
+          ? `${PROVIDERS[name].name} does not recognise this key. Check it and try again.`
           : `${PROVIDERS[name].name} verification failed (error ${response.status}).`
       );
     const result = await response.json();
@@ -234,8 +235,8 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
   async function configure(body = {}) {
     const name = body.provider ?? provider;
     if (!PROVIDERS[name]) throw new Error('Unsupported AI provider.');
-    if (busy) throw new Error('Wait for the current AI request to finish before changing settings.');
-    if (!file) throw new Error('AI settings cannot be saved.');
+    if (busy) throw new Error('Wait for the AI request in progress before changing the configuration.');
+    if (!file) throw new Error('Saving the AI configuration is not available.');
     const candidate = body.apiKey;
     if (candidate !== undefined && candidate !== '') {
       if (
@@ -245,7 +246,7 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
         /\s/.test(candidate.trim())
       )
         throw new Error(`Enter a valid ${PROVIDERS[name].name} API key.`);
-    } else if (!keys[name]) throw new Error(`Enter a ${PROVIDERS[name].name} API key first.`);
+    } else if (!keys[name]) throw new Error(`Enter the ${PROVIDERS[name].name} API key first.`);
     busy = true;
     try {
       const key = candidate ? candidate.trim() : keys[name];
@@ -268,17 +269,16 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
         const list = models.openaiList;
         if (body.textModel !== undefined) {
           if (!validModelId(body.textModel) || (list.length && !list.includes(body.textModel)))
-            throw new Error('The selected API key cannot access the OpenAI text model.');
+            throw new Error('OpenAI text model not available for your key.');
           models.openaiText = body.textModel;
         }
         if (body.audioModel !== undefined) {
           if (body.audioModel === null || body.audioModel === '') models.openaiAudio = null;
           else if (!validModelId(body.audioModel) || (list.length && !list.includes(body.audioModel)))
-            throw new Error('The selected API key cannot access the OpenAI audio model.');
+            throw new Error('OpenAI audio model not available for your key.');
           else models.openaiAudio = body.audioModel;
         }
-        if (!models.openaiText)
-          throw new Error('No OpenAI text models are available for this API key.');
+        if (!models.openaiText) throw new Error('No OpenAI text model available for this key.');
         stored.models.openai = {
           text: models.openaiText,
           audio: models.openaiAudio,
@@ -290,7 +290,8 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
       persist();
       return status();
     } catch (e) {
-      if (e.name === 'TimeoutError') throw new Error(`${PROVIDERS[name].name} verification timed out. Try again.`);
+      if (e.name === 'TimeoutError')
+        throw new Error(`${PROVIDERS[name].name} verification timed out. Try again.`);
       throw e;
     } finally {
       busy = false;
@@ -310,10 +311,10 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
   ) {
     const name = provider,
       label = PROVIDERS[name].name;
-    if (!ready(name)) throw new Error(`${label} is not configured. Open Configure AI and enter the key.`);
+    if (!ready(name)) throw new Error(`${label} not configured. Open Set up AI and enter the key.`);
     if (audio?.length && !canListen())
-      throw new Error('To analyze audio, select OpenAI with an audio model in Configure AI.');
-    if (busy) throw new Error('An AI request is already in progress. Wait for it to finish.');
+      throw new Error('To have the audio listened to, choose OpenAI with an audio model in Set up AI.');
+    if (busy) throw new Error('An AI request is already in progress. Wait for the result.');
     busy = true;
     const key = keys[name];
     try {
@@ -369,27 +370,26 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
       if (!response.ok) {
         if (response.status === 401) {
           invalid[name] = true;
-          throw new Error(`The ${label} key is invalid. Enter it again in Configure AI and try again.`);
+          throw new Error(`Invalid ${label} key. Enter it again in Set up AI and try again.`);
         }
-        let message = `${label} returned error ${response.status}.`;
+        let message = `${label} responded with error ${response.status}.`;
         try {
           const detail = await response.json();
           if (typeof detail.error?.message === 'string')
             message += ' ' + detail.error.message.slice(0, 350).replaceAll(key, '[redacted]');
         } catch {}
-        if (response.status === 404)
-          message += ` Check the selected model in Configure AI (${body.model}).`;
+        if (response.status === 404) message += ` Check the model chosen in Set up AI (${body.model}).`;
         throw new Error(message);
       }
       const result = await response.json();
       if (result.choices?.[0]?.finish_reason === 'length')
-        throw new Error('AI response is too long and incomplete. Try again.');
+        throw new Error('AI response too long and incomplete. Try again.');
       const content = result.choices?.[0]?.message?.content;
       if (typeof content !== 'string' || !content.trim())
         throw new Error(`${label} did not return a result.`);
       return content.trim();
     } catch (e) {
-      if (e.name === 'TimeoutError') throw new Error(`${label} timed out. You can try again.`);
+      if (e.name === 'TimeoutError') throw new Error(`${label} did not respond in time. You can try again.`);
       throw e;
     } finally {
       busy = false;
@@ -416,16 +416,18 @@ export function createPromptAI(settings = {}, { fetchImpl = fetch, protector = u
       : [];
   const text = (body, key, max, fallback = '') => {
     const v = body[key] ?? fallback;
-    if (typeof v !== 'string' || v.length > max) throw new Error(`Invalid ${key} field.`);
+    if (typeof v !== 'string' || v.length > max) throw new Error(`Field ${key} is not valid.`);
     return v.trim();
   };
 
   async function boost(body) {
     const basePrompt = text(body, 'basePrompt', 3000),
       exclude = text(body, 'exclude', 2000);
-    if (!basePrompt) throw new Error('Build a prompt with the music categories first.');
+    // Rules: `engine` only names the target model in the instructions (YuE2 reads comma-separated style tags too).
+    const engine = body.engine === 'yue2' ? 'YuE2' : 'ACE-Step 1.5';
+    if (!basePrompt) throw new Error('First create a prompt with the music categories.');
     const raw = await completion(
-      `Improve this music STYLE prompt for ACE-Step 1.5, without writing lyrics.
+      `Improve this music STYLE prompt for ${engine}, without writing lyrics.
 Base prompt: ${basePrompt}
 Avoid these competing concepts: ${exclude || '(none)'}
 Preserve the user's genre, voice choice, instruments, BPM and key. Order by priority: genre, mood, vocals, instruments, production, BPM/key. Remove duplicate or contradictory descriptors. Do not invent unsupported claims about model controls. Artist references should become concrete sonic traits. Keep instrumental prompts explicitly instrumental, with no vocals. Use concise English music descriptors (maximum 180 words).
@@ -458,9 +460,12 @@ Return ONLY JSON: {"boostedPrompt":"style prompt","strategy":["2-4 short explana
       context = text(body, 'musicalContext', 3000),
       voice = text(body, 'vocalType', 100, 'as described in the music prompt');
     const mode = text(body, 'mode', 20, 'write');
-    if (!['write', 'tag-existing'].includes(mode)) throw new Error('Invalid lyrics mode.');
-    if (mode === 'write' && !concept) throw new Error('Describe the song idea.');
-    if (mode === 'tag-existing' && !existing) throw new Error('Enter the lyrics to structure.');
+    if (!['write', 'tag-existing'].includes(mode)) throw new Error('Invalid text mode.');
+    // Rules: the lyrics can be written from the style prompt alone (musicalContext); `engine: 'yue2'` drops ACE-Step-only delivery cues.
+    const engine = body.engine === 'yue2' ? 'YuE2' : 'ACE-Step 1.5';
+    if (mode === 'write' && !concept && !context)
+      throw new Error('Describe the idea of the song or the style.');
+    if (mode === 'tag-existing' && !existing) throw new Error('Enter the lyrics to organise.');
     const structure = body.structure ?? ['Verse', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Chorus', 'Outro'];
     if (
       !Array.isArray(structure) ||
@@ -468,7 +473,7 @@ Return ONLY JSON: {"boostedPrompt":"style prompt","strategy":["2-4 short explana
       structure.length > 16 ||
       structure.some(s => typeof s !== 'string' || s.length > 50)
     )
-      throw new Error('Invalid song structure.');
+      throw new Error('Invalid structure.');
     const duration = body.duration ?? 60;
     if (!Number.isInteger(duration) || duration < 10 || duration > 300) throw new Error('Invalid duration.');
     const budget = lyricsBudget(duration);
@@ -480,12 +485,12 @@ Return ONLY JSON: {"boostedPrompt":"style prompt","strategy":["2-4 short explana
 Length: about ${budget.target} sung words in total and never more than ${budget.max}; section tags are not words, but repeated lines and vocables count. Lines are short: usually 3 to 7 words, never more than 9. Typical sizes: verse 2-4 lines, chorus 2-4 lines built on one repeated hook, bridge 1-2 lines, intro or outro 1-2 lines or just vocables. Do not narrate or explain: one concrete image and one feeling per section, and leave room to breathe. A verse may be a single line sung two or three times.
 Keep the metre consistent and the lines easy to sing. Use natural rhymes without forcing words. A bridge brings one new image; an outro may return to an earlier image. Avoid generic AI clichés such as neon haze, symphony of, echoes in the dark, story unfolds, down on my knees. Backing vocal parentheses should be sparse and inside lyric lines only.`
         : '';
-    const prompt = `Target: ACE-Step 1.5 music generation. ${mode === 'tag-existing' ? 'Organize the supplied lyrics with section tags, preserving every sung word and its order.' : 'Write original, singable song lyrics.'}
-Language: ${language}. Idea: ${concept}. Tone: ${tone}. Point of view: ${pov}. Voice: ${voice}.
+    const prompt = `Target: ${engine} music generation. ${mode === 'tag-existing' ? 'Organize the supplied lyrics with section tags, preserving every sung word and its order.' : 'Write original, singable song lyrics.'}
+Language: ${language}. Idea: ${concept || 'your own original idea that fits the musical context'}. Tone: ${tone}. Point of view: ${pov}. Voice: ${voice}.
 Musical context: ${context || '(not specified)'}. Approximate audio duration: ${duration} seconds.
 Requested section order: ${structure.join(' > ')}. Use exactly this order, without adding sections.
 Use plain section tags such as [Verse], [Chorus], [Bridge], [Intro], [Outro]. Do not use Suno-specific metadata, pipe-delimited delivery hints, sliders, or stage directions in standalone parentheses.
-${mode === 'write' ? 'Delivery cues (ACE-Step reads them): after a tag you may add one or two English words, e.g. [Verse - whispered], [Chorus - anthemic], [Bridge - stripped back]; use them on at most half of the sections. UPPERCASE marks a word to shout or stress, rarely. A background echo goes in parentheses at the end of the same line, never on a line of its own. Lines of 6-10 syllables sing most naturally.' : ''}
+${mode === 'write' && engine !== 'YuE2' ? 'Delivery cues (ACE-Step reads them): after a tag you may add one or two English words, e.g. [Verse - whispered], [Chorus - anthemic], [Bridge - stripped back]; use them on at most half of the sections. UPPERCASE marks a word to shout or stress, rarely. A background echo goes in parentheses at the end of the same line, never on a line of its own. Lines of 6-10 syllables sing most naturally.' : ''}
 ${style}
 ${existing ? 'Existing lyrics:\n' + existing : ''}
 Return ONLY lyrics in ${language}, with section tags, no introduction, no markdown fences, no commentary.`;
@@ -505,7 +510,7 @@ Return ONLY lyrics in ${language}, with section tags, no introduction, no markdo
       );
       if (sungWordCount(shorter) < sungWordCount(result)) result = shorter;
     }
-    if (result.length > 12000) throw new Error('AI lyrics exceed Sonora’s limit.');
+    if (result.length > 12000) throw new Error('The AI lyrics exceed the Sonora limit.');
     if (mode === 'tag-existing') {
       const sungWords = value =>
         value
@@ -513,7 +518,7 @@ Return ONLY lyrics in ${language}, with section tags, no introduction, no markdo
           .replace(/\s+/g, ' ')
           .trim();
       if (sungWords(existing) !== sungWords(result))
-        throw new Error('AI changed the lyrics. Your original is preserved; try again.');
+        throw new Error('The AI changed the words of the lyrics. Your original is kept: try again.');
     }
     return mode === 'write'
       ? { lyrics: result, words: sungWordCount(result), maxWords: budget.max }
@@ -565,7 +570,7 @@ Return ONLY JSON: {"summary":"2-3 sentences in Italian","observations":["3-6 sho
       typeof result.settings !== 'object' ||
       Array.isArray(result.settings)
     )
-      throw new Error('AI suggestions are incomplete. Try again.');
+      throw new Error('The AI suggestions are incomplete. Try again.');
     const settings = {};
     const eqIn = result.settings.eq,
       num = v =>
@@ -622,7 +627,7 @@ Return ONLY JSON: {"summary":"2-3 sentences in Italian","observations":["3-6 sho
     'B',
   ];
   async function listen({ audio, duration, excerpt, name = '' }) {
-    if (!audio?.length) throw new Error('There is no audio to analyze.');
+    if (!audio?.length) throw new Error('No audio to listen to.');
     const raw = await completion(
       `Listen to this song${name ? ` (file name: ${JSON.stringify(name.slice(0, 120))})` : ''}. ${excerpt ? `You hear ${excerpt} of a ${Math.round(duration)} s track.` : `Duration: ${Math.round(duration)} s.`}
 The user wants to create a NEW, ORIGINAL song with a similar sound in ACE-Step 1.5 (a text-to-music model). Describe the sound so it can be recreated in spirit: genre and sub-genre, era, mood, tempo feel, instrumentation and how each part is played, drums and groove, bass, harmony colour, vocal type and delivery, production and mix character (space, saturation, width, loudness).
@@ -638,7 +643,7 @@ Return ONLY JSON: {"stylePrompt":"concise English ACE-Step style prompt, comma-s
     );
     const r = parseJson(raw, 'Invalid AI response format. Try again.');
     if (typeof r.stylePrompt !== 'string' || !r.stylePrompt.trim())
-      throw new Error('AI did not describe the track. Try again.');
+      throw new Error('The AI did not describe the song. Try again.');
     const keyMatch =
       typeof r.key === 'string'
         ? /^\s*([A-G](?:#|b)?)\s*(major|minor|maj|min|m)?\s*$/i.exec(
@@ -705,14 +710,66 @@ Return ONLY JSON: {"title":"...","tags":"...","lyrics":"..."}.`,
     );
     const r = parseJson(raw, 'Invalid AI response format. Try again.');
     if (typeof r.tags !== 'string' || !r.tags.trim())
-      throw new Error('AI did not write a style prompt. Try again.');
+      throw new Error('The AI did not write the style. Try again.');
     const lyrics = instrumental || typeof r.lyrics !== 'string' ? '' : r.lyrics.trim().slice(0, 12000);
-    if (!instrumental && !lyrics) throw new Error('AI did not write lyrics. Try again.');
+    if (!instrumental && !lyrics) throw new Error('The AI did not write the lyrics. Try again.');
     return {
       title: typeof r.title === 'string' ? r.title.trim().slice(0, 100) : '',
       tags: r.tags.trim().slice(0, 3000),
       lyrics,
     };
+  }
+
+  /**
+   * A random lyric sheet for a song that already exists: a finished instrumental, or a song whose music is right but whose
+   * words are not. Rules: it only RETURNS text (the caller puts it in the form); the number of lines comes from the song's
+   * tempo and length (lyricsPlan), the style words steer mood and vocabulary.
+   */
+  async function fitLyrics(body = {}) {
+    const tags = text(body, 'tags', 3000),
+      language = text(body, 'language', 40, 'Italian'),
+      concept = text(body, 'concept', 400),
+      key = text(body, 'keyscale', 20),
+      bpm = body.bpm ?? 110,
+      duration = Math.round(body.duration ?? 60),
+      timesignature = String(body.timesignature ?? '4');
+    if (!tags) throw new Error('Describe the style of the song first, so the lyrics match.');
+    if (!Number.isFinite(bpm) || bpm < 30 || bpm > 250) throw new Error('Invalid tempo.');
+    if (!Number.isFinite(duration) || duration < 10 || duration > 300) throw new Error('Invalid duration.');
+    if (!['2', '3', '4', '6'].includes(timesignature)) throw new Error('Invalid meter.');
+    const plan = lyricsPlan(duration, bpm, timesignature);
+    const prompt = `Write original, singable song lyrics for an ACE-Step 1.5 track that already exists. Return ONLY the lyrics.
+Style of the music: ${tags}. Tempo: ${bpm} BPM, time signature ${timesignature === '6' ? '6/8' : timesignature + '/4'}${key ? ', key ' + key : ''}. Language: ${language}.
+${concept ? `Theme: ${concept}.` : 'Pick a fresh, concrete theme that suits the style (one image, one feeling).'}
+Length: the song lasts about ${duration} seconds, so write ${plan.lines} sung lines in total (never fewer than ${Math.max(2, plan.lines - 2)} and never more than ${plan.lines + 2}), each of about ${plan.syllables} syllables, so that every line fits two bars at this tempo. Section tags are not lines.
+Use exactly this section order: ${plan.structure.join(' > ')}. Plain tags only, such as [Verse], [Chorus], [Bridge], [Outro]; the chorus comes back in full each time.
+Write like a real song: short lines, a strong repeated hook, vocables where the genre uses them, natural rhymes. Avoid clichés such as neon haze, symphony of, echoes in the dark, story unfolds. No stage directions, no commentary.`;
+    const tidy = raw =>
+      raw
+        .replace(/^```[^\n]*\n/, '')
+        .replace(/\n```$/, '')
+        .trim();
+    const lineCount = value =>
+      value
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l && !/^\[[^\]]*\]$/.test(l)).length;
+    let result = tidy(await completion(prompt, 3000, false, { temperature: 1.2 }));
+    // Rules: one retry at most, only when the draft is clearly off the planned length; the closer draft wins.
+    const off = value => Math.abs(lineCount(value) - plan.lines);
+    if (off(result) > Math.max(3, Math.round(plan.lines * 0.3))) {
+      const again = tidy(
+        await completion(
+          `${prompt}\n\nPREVIOUS DRAFT (${lineCount(result)} sung lines, the target is ${plan.lines}):\n${result}\n\nRewrite it with the right number of lines. Return ONLY the new lyrics, with section tags.`,
+          3000,
+          false,
+          { temperature: 1.2 }
+        )
+      );
+      if (off(again) < off(result)) result = again;
+    }
+    if (!result) throw new Error('The AI did not write the lyrics. Try again.');
+    return { lyrics: result.slice(0, 12000), lines: lineCount(result), plannedLines: plan.lines };
   }
 
   /** "Auto" for tempo, time signature and key: the AI reads style and lyrics and proposes values the ACE-Step encoder needs. */
@@ -751,5 +808,5 @@ Return ONLY JSON: {"bpm":96,"timeSignature":"4","key":"A minor"}.`,
       ? Object.fromEntries(Object.entries(result).filter(([k]) => wanted.includes(k)))
       : result;
   }
-  return { status, configure, boost, lyrics, mastering, listen, canListen, surprise, chooseMeta };
+  return { status, configure, boost, lyrics, mastering, listen, canListen, surprise, fitLyrics, chooseMeta };
 }

@@ -15,13 +15,32 @@ import { resolveModelName } from '../lib.mjs';
 
 test('a model in a sub-folder is found by its file name, exact names win, ambiguity is not guessed', () => {
   const list = ['other.safetensors', 'acestep/acestep_v1.5_xl_turbo_bf16.safetensors'];
-  assert.equal(resolveModelName('acestep_v1.5_xl_turbo_bf16.safetensors', list), 'acestep/acestep_v1.5_xl_turbo_bf16.safetensors');
-  assert.equal(resolveModelName('x.safetensors', ['a\\b\\x.safetensors']), 'a\\b\\x.safetensors', 'Windows separators');
-  assert.equal(resolveModelName('x.safetensors', ['x.safetensors', 'sub/x.safetensors']), 'x.safetensors', 'the exact name wins');
-  assert.equal(resolveModelName('x.safetensors', ['a/x.safetensors', 'b/x.safetensors']), 'x.safetensors', 'two candidates: not guessed');
+  assert.equal(
+    resolveModelName('acestep_v1.5_xl_turbo_bf16.safetensors', list),
+    'acestep/acestep_v1.5_xl_turbo_bf16.safetensors'
+  );
+  assert.equal(
+    resolveModelName('x.safetensors', ['a\\b\\x.safetensors']),
+    'a\\b\\x.safetensors',
+    'Windows separators'
+  );
+  assert.equal(
+    resolveModelName('x.safetensors', ['x.safetensors', 'sub/x.safetensors']),
+    'x.safetensors',
+    'the exact name wins'
+  );
+  assert.equal(
+    resolveModelName('x.safetensors', ['a/x.safetensors', 'b/x.safetensors']),
+    'x.safetensors',
+    'two candidates: not guessed'
+  );
   assert.equal(resolveModelName('x.safetensors', ['y.safetensors']), 'x.safetensors');
   assert.equal(resolveModelName('x.safetensors', undefined), 'x.safetensors');
-  assert.equal(resolveModelName('acestep/x.safetensors', ['acestep/x.safetensors']), 'acestep/x.safetensors', 'a path written in the config still works');
+  assert.equal(
+    resolveModelName('acestep/x.safetensors', ['acestep/x.safetensors']),
+    'acestep/x.safetensors',
+    'a path written in the config still works'
+  );
 });
 
 test('Studio is ready with sub-folder models and sends the names ComfyUI lists', async t => {
@@ -29,7 +48,10 @@ test('Studio is ready with sub-folder models and sends the names ComfyUI lists',
   const submitted = [];
   const nodes = {
     UNETLoader: { unet_name: [['acestep\\model.safetensors']] },
-    DualCLIPLoader: { clip_name1: [['qwen/encoder.safetensors']], clip_name2: [['qwen/planner.safetensors']] },
+    DualCLIPLoader: {
+      clip_name1: [['qwen/encoder.safetensors']],
+      clip_name2: [['qwen/planner.safetensors']],
+    },
     VAELoader: { vae_name: [['acestep/vae.safetensors']] },
   };
   const fake = http.createServer(async (req, res) => {
@@ -55,7 +77,13 @@ test('Studio is ready with sub-folder models and sends the names ComfyUI lists',
   });
   await new Promise(r => fake.listen(0, '127.0.0.1', r));
   const app = createStudio(
-    { model: 'model.safetensors', encoder: 'encoder.safetensors', planner: 'planner.safetensors', vae: 'vae.safetensors', comfyUrl: `http://127.0.0.1:${fake.address().port}` },
+    {
+      model: 'model.safetensors',
+      encoder: 'encoder.safetensors',
+      planner: 'planner.safetensors',
+      vae: 'vae.safetensors',
+      comfyUrl: `http://127.0.0.1:${fake.address().port}`,
+    },
     { dataDir: dir, pollMs: 1e8 }
   );
   t.after(async () => {
@@ -71,10 +99,22 @@ test('Studio is ready with sub-folder models and sends the names ComfyUI lists',
   const response = await fetch(base + '/api/generate', {
     method: 'POST',
     headers: { 'X-Sonora': '1', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: 'Test', tags: 'piano', instrumental: true, duration: 15, variants: 1, seed: 1 }),
+    body: JSON.stringify({
+      title: 'Test',
+      tags: 'piano',
+      instrumental: true,
+      duration: 15,
+      variants: 1,
+      seed: 1,
+    }),
   });
   assert.equal(response.status, 202);
   const workflow = JSON.stringify(submitted[0].prompt);
-  for (const name of ['acestep\\\\model.safetensors', 'qwen/encoder.safetensors', 'qwen/planner.safetensors', 'acestep/vae.safetensors'])
+  for (const name of [
+    'acestep\\\\model.safetensors',
+    'qwen/encoder.safetensors',
+    'qwen/planner.safetensors',
+    'acestep/vae.safetensors',
+  ])
     assert.ok(workflow.includes(name), name);
 });

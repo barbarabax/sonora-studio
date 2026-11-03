@@ -1,8 +1,8 @@
 // @codedna
 // description: User-confirmed, checksum-verified ACE-Step model downloads into an explicitly selected ComfyUI model folder.
-// 
 //
-// 
+//
+//
 //
 // exports: createModelSetup | ACE_STEP_FILES
 // used_by: sonora-studio/server.mjs
@@ -17,9 +17,21 @@ import { Readable, Transform } from 'node:stream';
 const REPOSITORY = 'Comfy-Org/ace_step_1.5_ComfyUI_files';
 const BASE = `https://huggingface.co/${REPOSITORY}`;
 const FILES = [
-  { path: 'split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors', category: 'diffusion_models', setting: 'model' },
-  { path: 'split_files/text_encoders/qwen_0.6b_ace15.safetensors', category: 'text_encoders', setting: 'encoder' },
-  { path: 'split_files/text_encoders/qwen_4b_ace15.safetensors', category: 'text_encoders', setting: 'planner' },
+  {
+    path: 'split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors',
+    category: 'diffusion_models',
+    setting: 'model',
+  },
+  {
+    path: 'split_files/text_encoders/qwen_0.6b_ace15.safetensors',
+    category: 'text_encoders',
+    setting: 'encoder',
+  },
+  {
+    path: 'split_files/text_encoders/qwen_4b_ace15.safetensors',
+    category: 'text_encoders',
+    setting: 'planner',
+  },
   { path: 'split_files/vae/ace_1.5_vae.safetensors', category: 'vae', setting: 'vae' },
 ];
 
@@ -29,17 +41,15 @@ function validateResponseUrl(response, expectedHost = 'huggingface.co', fallback
     url.hostname === expectedHost ||
     url.hostname.endsWith(`.${expectedHost}`) ||
     (expectedHost === 'huggingface.co' && url.hostname.endsWith('.hf.co'));
-  if (
-    url.protocol !== 'https:' ||
-    !trustedHost
-  )
+  if (url.protocol !== 'https:' || !trustedHost)
     throw new Error('The model download redirected to an untrusted host.');
 }
 
 async function checkedDirectory(target, { create = false } = {}) {
   try {
     const stat = await fs.promises.lstat(target);
-    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('Symbolic links are not allowed in the model path.');
+    if (stat.isSymbolicLink() || !stat.isDirectory())
+      throw new Error('Symbolic links are not allowed in the model path.');
   } catch (error) {
     if (error.code !== 'ENOENT' || !create) throw error;
     await fs.promises.mkdir(target);
@@ -122,20 +132,32 @@ export function createModelSetup({
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
-      const name = String(names[item.setting] || path.basename(item.path)).split(/[\\/]/).pop();
+      const name = String(names[item.setting] || path.basename(item.path))
+        .split(/[\\/]/)
+        .pop();
       if (name !== path.basename(name) || !name.endsWith('.safetensors'))
         throw new Error('Custom model names must be safe .safetensors filenames.');
       if (seen[item.setting]) {
-        entries.push({ name, category, bytes: item.size, status: 'present', remotePath: item.path, listedByComfyui: true });
+        entries.push({
+          name,
+          category,
+          bytes: item.size,
+          status: 'present',
+          remotePath: item.path,
+          listedByComfyui: true,
+        });
         continue;
       }
       const target = path.join(modelsDir, category, name);
       let state = 'missing';
       try {
         const stat = await fs.promises.lstat(target);
-        if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`Refusing to replace an unsafe model path: ${name}.`);
+        if (stat.isSymbolicLink() || !stat.isFile())
+          throw new Error(`Refusing to replace an unsafe model path: ${name}.`);
         if (stat.size !== item.size)
-          throw new Error(`${name} already exists but its size does not match the official model. It was left untouched.`);
+          throw new Error(
+            `${name} already exists but its size does not match the official model. It was left untouched.`
+          );
         state = 'present';
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
@@ -169,7 +191,12 @@ export function createModelSetup({
         controller = null;
         return { ...plan, downloaded: 0 };
       }
-      update({ status: 'downloading', message: `Downloading ${missing.length} missing model file(s)…`, activeFile: null, completedBytes: 0 });
+      update({
+        status: 'downloading',
+        message: `Downloading ${missing.length} missing model file(s)…`,
+        activeFile: null,
+        completedBytes: 0,
+      });
       const details = await metadata();
       for (const entry of missing) {
         if (signal.aborted) throw new Error('Model download cancelled.');
@@ -184,9 +211,12 @@ export function createModelSetup({
         for (const filePath of [target, partial]) {
           try {
             const stat = await fs.promises.lstat(filePath);
-            if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`Refusing to use an unsafe model path: ${path.basename(filePath)}.`);
+            if (stat.isSymbolicLink() || !stat.isFile())
+              throw new Error(`Refusing to use an unsafe model path: ${path.basename(filePath)}.`);
             if (filePath === target)
-              throw new Error(`${entry.name} appeared during setup. It was left untouched; check the files again.`);
+              throw new Error(
+                `${entry.name} appeared during setup. It was left untouched; check the files again.`
+              );
           } catch (error) {
             if (error.code !== 'ENOENT') throw error;
           }
@@ -210,14 +240,25 @@ export function createModelSetup({
         if (start && !String(response.headers.get('content-range') || '').startsWith(`bytes ${start}-`))
           throw new Error(`The model host returned an invalid resume range for ${entry.name}.`);
         const downloaded = start;
-        update({ activeFile: entry.name, fileBytes: downloaded, fileTotal: item.size, completedBytes: completed + downloaded, message: `Downloading ${entry.name}…` });
+        update({
+          activeFile: entry.name,
+          fileBytes: downloaded,
+          fileTotal: item.size,
+          completedBytes: completed + downloaded,
+          message: `Downloading ${entry.name}…`,
+        });
         let received = downloaded;
         const meter = new Transform({
           transform(chunk, _encoding, callback) {
             hash.update(chunk);
             received += chunk.length;
             const fileBytes = received;
-            update({ fileBytes, completedBytes: completed + fileBytes, activeFile: entry.name, fileTotal: item.size });
+            update({
+              fileBytes,
+              completedBytes: completed + fileBytes,
+              activeFile: entry.name,
+              fileTotal: item.size,
+            });
             callback(null, chunk);
           },
         });
@@ -239,11 +280,24 @@ export function createModelSetup({
         files: plan.files.map(file => ({ ...file, status: 'present' })),
         totalBytes: 0,
       };
-      update({ ...finalPlan, status: 'ready', message: 'ACE-Step models downloaded and verified. If ComfyUI still reports missing models, restart ComfyUI manually.', completedBytes: completed, activeFile: null });
+      update({
+        ...finalPlan,
+        status: 'ready',
+        message:
+          'ACE-Step models downloaded and verified. If ComfyUI still reports missing models, restart ComfyUI manually.',
+        completedBytes: completed,
+        activeFile: null,
+      });
       return { ...finalPlan, downloaded: missing.length };
     } catch (error) {
       const cancelled = signal.aborted;
-      update({ status: cancelled ? 'cancelled' : 'error', message: cancelled ? 'Model download cancelled. A partial file may be resumed on retry.' : error.message, activeFile: null });
+      update({
+        status: cancelled ? 'cancelled' : 'error',
+        message: cancelled
+          ? 'Model download cancelled. A partial file may be resumed on retry.'
+          : error.message,
+        activeFile: null,
+      });
       throw error;
     } finally {
       controller = null;

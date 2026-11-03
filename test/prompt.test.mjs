@@ -138,7 +138,7 @@ test('organizing existing lyrics must keep the exact sung words and order', asyn
   };
   assert.equal((await ai.lyrics(input)).lyrics, output);
   output = '[Verse]\nVai via\n[Chorus]\nDa me';
-  await assert.rejects(ai.lyrics(input), /changed the lyrics/);
+  await assert.rejects(ai.lyrics(input), /The AI changed the/);
 });
 
 test('AI serializes requests, releases failed calls and redacts provider errors', async t => {
@@ -153,7 +153,7 @@ test('AI serializes requests, releases failed calls and redacts provider errors'
   );
   const next = ai.boost({ basePrompt: 'Piano' });
   release(response('not JSON'));
-  await assert.rejects(next, /Invalid AI prompt format/);
+  await assert.rejects(next, /Invalid AI prompt format\./);
 });
 
 test('key setup verifies before saving, never returns the key and survives a restart', async t => {
@@ -188,7 +188,7 @@ test('key setup verifies before saving, never returns the key and survives a res
   const restarted = createPromptAI({ credentialsFile }, { fetchImpl: fake });
   assert.equal(restarted.status().available, true);
   reject = true;
-  await assert.rejects(ai.configure({ apiKey: 'fake-personal-key-123456' }), /does not recognize this key/);
+  await assert.rejects(ai.configure({ apiKey: 'fake-personal-key-123456' }), /does not recognise/);
   assert.equal(ai.status().available, true, 'failed setup preserves the previous verified key');
 });
 
@@ -222,7 +222,7 @@ test('a plain-text key from an older version is migrated to the protected format
 
 test('provider authentication failure disables further AI buttons without exposing credentials', async t => {
   const ai = configured(t, async () => new Response('{}', { status: 401 }));
-  await assert.rejects(ai.boost({ basePrompt: 'Piano' }), /key is invalid/);
+  await assert.rejects(ai.boost({ basePrompt: 'Piano' }), /Set up AI/);
   assert.equal(ai.status().available, false);
 });
 

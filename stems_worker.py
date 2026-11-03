@@ -1,11 +1,3 @@
-"""stems_worker.py — Local six-stem separation. All paths come from Sonora, never from browser input.
-
-exports: STEMS | report() | fit_grid(stem_dir) | reverb(task) | main(task)
-used_by: none
-rules:   none
-agent:   codedna-cli (no-llm) | codedna-cli | 2026-10-11 | codedna-cli | initial CodeDNA annotation pass
-message: 
-"""
 # @codedna
 # description: CPU separation of a song into six stems (vocals, drums, bass, guitar, piano, other).
 # exports: main
@@ -37,12 +29,12 @@ def fit_grid(stem_dir):
     _, beats = librosa.beat.beat_track(y=mix, sr=22050, units='time', tightness=100)
     beats = np.asarray(beats, dtype=float)
     if len(beats) < 8:
-        raise ValueError('Could not find the tempo of the track.')
+        raise ValueError('I cannot find the tempo of the song.')
     rough = float(np.median(np.diff(beats)))
     index = np.round((beats - beats[0]) / rough)
     period, t0 = np.polyfit(index, beats, 1)
     if not 0.2 < period < 2.0:
-        raise ValueError('The track tempo is not plausible.')
+        raise ValueError('Song tempo not plausible.')
     return {'bpm': round(60.0 / float(period), 2), 'period': float(period), 't0': float(t0)}
 
 
@@ -54,10 +46,10 @@ def reverb(task):
     dry, rate = sf.read(task['input'], dtype='float32', always_2d=True)
     ir, ir_rate = sf.read(task['ir'], dtype='float32', always_2d=True)
     if rate != ir_rate or dry.shape[1] != 2 or ir.shape[1] != 2:
-        raise ValueError('Formato audio del riverbero non valido.')
+        raise ValueError('Invalid reverb audio format.')
     mix = float(task['mix'])
     if not 0 <= mix <= 1:
-        raise ValueError('Quantita di riverbero non valida.')
+        raise ValueError('Invalid reverb amount.')
     wet = np.stack([fftconvolve(dry[:, c], ir[:, c]) for c in range(2)], axis=1)
     # Equal-power crossfade, the same law as verbMix() in public/fx.mjs.
     out = wet * np.sin(mix * np.pi / 2)
@@ -67,7 +59,6 @@ def reverb(task):
 
 
 def main(task):
-    """Rules: Paths come from the Sonora server; write stems next to the job and leave the source file untouched."""
     if task.get('action') == 'reverb':
         reverb(task)
         return
@@ -75,7 +66,7 @@ def main(task):
         report(done=True, grid=fit_grid(task['stemDir']))
         return
     if task.get('action') != 'separate6':
-        raise ValueError('Operazione audio non valida.')
+        raise ValueError('Invalid audio operation.')
     import torch
     torch.set_num_threads(6)
     from audio_separator.separator import Separator
@@ -97,7 +88,7 @@ def main(task):
         path.replace(target / (stem + '.flac'))
         found.append(stem)
     if sorted(found) != sorted(STEMS):
-        raise ValueError('Il separatore non ha restituito tutti gli strumenti.')
+        raise ValueError('The separator did not return all the instruments.')
     report(done=True, stems=[s for s in STEMS])
 
 

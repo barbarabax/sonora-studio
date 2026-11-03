@@ -115,7 +115,7 @@ test('long lyrics are reported and rejected rather than silently cut to five min
   assert.equal(estimateSongDuration(long).overflow, true);
   assert.throws(
     () => validateInput({ ...long, tags: 'jazz', instrumental: false, durationMode: 'auto' }),
-    /exceeds the 5-minute limit/
+    /The estimate is 360/
   );
 });
 
@@ -205,10 +205,7 @@ test('the server honors musical spacing and corrections and sends the canonical 
   });
   assert.equal(graph['4'].inputs.duration, 183);
   assert.equal(graph['6'].inputs.seconds, 183);
-  assert.throws(
-    () => validateInput({ ...input, durationArrangement: 'unknown' }),
-    /Invalid musical spaces/
-  );
+  assert.throws(() => validateInput({ ...input, durationArrangement: 'unknown' }), /Invalid musical spaces/);
   for (const patch of [
     { durationArrangement: '__proto__' },
     { timesignature: 'constructor' },

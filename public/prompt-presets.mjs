@@ -1,34 +1,9 @@
 // @codedna
 // description: Original musical categories and presets from Suno Prompt Master.
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-// 
-//
-// 
-//
-// 
-//
-// 
-//
-// 
-//
-// exports: GENRE_HIERARCHY | VOCAL_HIERARCHY | REFERENCES_BY_ERA | MOOD_OPTIONS | TEMPO_OPTIONS | KEY_OPTIONS | MODES_OPTIONS | STRUCTURE_OPTIONS | INSTRUMENTS_OPTIONS | PRODUCTION_OPTIONS | ERA_OPTIONS | GOAL_OPTIONS | RHYTHM_OPTIONS | GROOVE_FEEL_OPTIONS | BASS_TONE_OPTIONS | HARMONY_FORM_OPTIONS | MELODY_OPTIONS | EAR_CANDY_SPACE_OPTIONS | MIX_MASTER_HIERARCHY | PROMPT_CATEGORIES | (+4 more)
-// used_by: sonora-studio/public/prompt-core.mjs
-//                   sonora-studio/public/prompt-ui.mjs
+// exports: GENRE_HIERARCHY | VOCAL_HIERARCHY | REFERENCES_BY_ERA | MOOD_OPTIONS | TEMPO_OPTIONS | KEY_OPTIONS | MODES_OPTIONS | STRUCTURE_OPTIONS | INSTRUMENTS_OPTIONS | PRODUCTION_OPTIONS | ERA_OPTIONS | GOAL_OPTIONS | RHYTHM_OPTIONS | GROOVE_FEEL_OPTIONS | BASS_TONE_OPTIONS | HARMONY_FORM_OPTIONS | MELODY_OPTIONS | EAR_CANDY_SPACE_OPTIONS | MIX_MASTER_HIERARCHY | PROMPT_CATEGORIES | SUNO_V6_PRESETS | recommendSunoV6Params | varietyStepName | varietyToLabel
+// used_by: public/prompt-core.mjs
+//                   public/prompt-ui.mjs
 // rules:   Imported from the user-owned Suno Prompt source. Preserve original musical choices and conflict rules.
 // agent:   Codex - 2026-10-04 - Adapted pure logic without React or site authentication.
 export const GENRE_HIERARCHY = [

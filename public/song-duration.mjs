@@ -16,22 +16,16 @@
 //
 //
 //
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: parseDuration | formatDuration | estimateSongDuration
-// used_by: sonora-studio/lib.mjs
-//                   sonora-studio/public/app.js
-//                   sonora-studio/public/create-ui.mjs
-//                   sonora-studio/public/duration-field.mjs
-//                   sonora-studio/public/prompt-ui.mjs
+// used_by: lib.mjs
+//                   public/app.js
+//                   public/create-ui.mjs
+//                   public/duration-field.mjs
+//                   public/prompt-ui.mjs
 // rules:   Report estimates as estimates. Do not silently truncate long songs or count metadata as sung words.
 // agent:   Codex - 2026-10-04 - Automatic vocal duration with explicit sections and editable musical spacing.
 // Parse a typed song length: "2:30", "150" (seconds) or a single digit "3" (minutes).
@@ -73,7 +67,7 @@ function sectionType(label) {
   if (/bridge|ponte/i.test(label)) return 'bridge';
   if (/verse|strofa/i.test(label)) return 'verse';
   if (
-    /\b(?:solo|assolo|instrumental|instrumental|interlude|interludio|breakdown|break|intermezzo|stacco|pausa|silence|silenzio)\b/i.test(
+    /\b(?:solo|assolo|strumentale|instrumental|interlude|interludio|breakdown|break|intermezzo|stacco|pausa|silence|silenzio)\b/i.test(
       label
     )
   )
@@ -151,12 +145,12 @@ export function estimateSongDuration({
     overflow: false,
   });
   if (typeof lyrics !== 'string' || lyrics.length > 12000)
-    return invalid('Enter up to 12,000 characters of lyrics.');
-  if (!Number.isInteger(bpm) || bpm < 30 || bpm > 250) return invalid('Enter a whole-number BPM from 30 to 250.');
+    return invalid('Enter lyrics within 12000 characters.');
+  if (!Number.isInteger(bpm) || bpm < 30 || bpm > 250) return invalid('Set whole-number BPM from 30 to 250.');
   const meter = Object.hasOwn(METERS, timesignature) && METERS[timesignature],
     pacing = Object.hasOwn(PACING, lyricPacing) && PACING[lyricPacing],
     arrangement = Object.hasOwn(ARRANGEMENTS, durationArrangement) && ARRANGEMENTS[durationArrangement];
-  if (!meter || !pacing || !arrangement) return invalid('Invalid time signature, lyric pacing or arrangement.');
+  if (!meter || !pacing || !arrangement) return invalid('Invalid meter, phrasing or musical spaces.');
   if (
     !durationOverrides ||
     typeof durationOverrides !== 'object' ||
@@ -166,12 +160,12 @@ export function estimateSongDuration({
       ([k, v]) => !Number.isInteger(v) || v < (k.startsWith('auto:') ? 0 : 1) || v > 128
     )
   )
-    return invalid('Bars must be whole numbers from 1 to 128; added spaces can be 0.');
+    return invalid('Bars must be whole numbers, from 1 to 128; added spaces can be 0.');
   const [numerator, denominator] = meter,
     quarterNotesPerBar = (numerator * 4) / denominator,
     secondsPerBar = (quarterNotesPerBar * 60) / bpm;
   const parsed = parseSections(lyrics);
-  if (parsed.length > 128) return invalid('Lyrics contain too many sections (maximum 128).');
+  if (parsed.length > 128) return invalid('The lyrics contain too many sections (maximum 128).');
   let previousChorus = null;
   const writtenSections = parsed.map(section => {
     const lines = section.text.length,
@@ -230,17 +224,17 @@ export function estimateSongDuration({
   };
   const musical = writtenSections.filter(s => s.bars > 0);
   if (arrangement.edge && musical[0]?.sung)
-    addSpace('auto:intro', 'Intro instrumental aggiunta', 'intro', arrangement.edge);
+    addSpace('auto:intro', 'Instrumental intro added', 'intro', arrangement.edge);
   let previous = null;
   for (const section of writtenSections) {
     if (arrangement.gap && previous?.sung && section.sung && section.bars > 0)
-      addSpace('auto:gap:' + section.id, 'Stacco prima di ' + section.title, 'instrumental', arrangement.gap);
+      addSpace('auto:gap:' + section.id, 'Break before ' + section.title, 'instrumental', arrangement.gap);
     sections.push(section);
     if (section.bars > 0) previous = section;
   }
   if (arrangement.edge && musical.at(-1)?.sung)
-    addSpace('auto:outro', 'Coda instrumental aggiunta', 'outro', arrangement.edge);
-  if (sections.length > 128) return invalid('Too many sections, including musical spaces (maximum 128).');
+    addSpace('auto:outro', 'Instrumental outro added', 'outro', arrangement.edge);
+  if (sections.length > 128) return invalid('Too many sections counting the musical spaces (maximum 128).');
   const totalBars = sections.reduce((n, s) => n + s.bars, 0),
     hasLyrics = sections.some(s => s.words > 0);
   const vocalBars = sections.filter(s => s.sung).reduce((n, s) => n + s.bars, 0),
@@ -249,7 +243,7 @@ export function estimateSongDuration({
   const seconds = hasLyrics ? Math.max(10, Math.ceil(totalBars * secondsPerBar - 1e-9)) : 0;
   return {
     valid: hasLyrics,
-    reason: hasLyrics ? '' : 'Enter lyrics to estimate the duration.',
+    reason: hasLyrics ? '' : 'Enter the words to sing to estimate the duration.',
     seconds,
     totalBars,
     vocalBars,

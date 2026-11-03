@@ -1,13 +1,7 @@
-"""integrations/runpod/worker.py — Sonora RunPod pilot: persistent models, scoped Comfy jobs and audio outputs.
+"""Sonora RunPod pilot: persistent models, scoped Comfy jobs and audio outputs.
 
 This worker intentionally limits inline audio to short pilot results. Full-track
 downloads need a separate object-storage transport before UI integration.
-
-exports: VOLUME | OUTPUT | STATE | BASE | MODEL_REPO | MODEL_FILES | api(route, body) | write_json(file, data) | official_models() | file_sha256(file) | setup_models(job) | validate_pilot(data) | collect(entry, local_id, inline) | handler(job)
-used_by: none
-rules:   none
-agent:   codedna-cli (no-llm) | codedna-cli | 2026-10-11 | codedna-cli | initial CodeDNA annotation pass
-message: 
 """
 import base64
 import hashlib
@@ -23,13 +17,6 @@ VOLUME = Path('/runpod-volume')
 OUTPUT = VOLUME / 'sonora' / 'audio'
 STATE = VOLUME / 'sonora' / 'jobs'
 BASE = 'http://127.0.0.1:8188'
-MODEL_REPO = 'Comfy-Org/ace_step_1.5_ComfyUI_files'
-MODEL_FILES = (
-    ('split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors', 'unet'),
-    ('split_files/text_encoders/qwen_0.6b_ace15.safetensors', 'clip'),
-    ('split_files/text_encoders/qwen_4b_ace15.safetensors', 'clip'),
-    ('split_files/vae/ace_1.5_vae.safetensors', 'vae'),
-)
 
 
 def api(route, body=None):
@@ -45,108 +32,33 @@ def write_json(file, data):
     temp.replace(file)
 
 
-def official_models():
-    url = f'https://huggingface.co/api/models/{MODEL_REPO}/tree/main?recursive=true&expand=true'
-    with urllib.request.urlopen(url, timeout=60) as response:
-        entries = json.load(response)
-    if not isinstance(entries, list):
-        raise RuntimeError('The official ACE-Step model manifest is invalid.')
-    models = []
-    for relative, directory in MODEL_FILES:
-        entry = next((item for item in entries if item.get('path') == relative), None)
-        lfs = entry.get('lfs', {}) if entry else {}
-        sha256 = lfs.get('oid') or (entry or {}).get('oid', '')
-        sha256 = sha256.removeprefix('sha256:')
-        if not entry or not isinstance(entry.get('size'), int) or entry['size'] <= 0 or len(sha256) != 64:
-            raise RuntimeError('The official model manifest is missing verified details for ' + Path(relative).name)
-        models.append({
-            'path': relative,
-            'directory': directory,
-            'name': Path(relative).name,
-            'size': entry['size'],
-            'sha256': sha256.lower(),
-            'url': f'https://huggingface.co/{MODEL_REPO}/resolve/main/{relative}?download=true',
-        })
-    return models
-
-
-def file_sha256(file):
-    digest = hashlib.sha256()
-    with file.open('rb') as source:
-        while chunk := source.read(8 * 1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def setup_models(job):
     import runpod
-    import shutil
-
-    models = official_models()
+    models = json.loads(os.environ['SONORA_MODELS'])
     result = []
-    missing = []
     for item in models:
-        target = VOLUME / 'models' / item['directory'] / item['name']
-        marker = target.with_suffix('.verified.json')
+        parts = item['path'].split('/')
+        directory = {'diffusion_models': 'unet', 'text_encoders': 'clip', 'vae': 'vae'}[parts[1]]
+        target = VOLUME / 'models' / directory / parts[-1]
         target.parent.mkdir(parents=True, exist_ok=True)
-        if target.is_symlink() or marker.is_symlink():
-            raise RuntimeError('Unsafe model path: ' + target.name)
-        if target.exists():
-            if not target.is_file() or target.stat().st_size != item['size']:
-                raise RuntimeError('An existing file conflicts with the official model; it was left untouched: ' + target.name)
-            if marker.exists() and json.loads(marker.read_text()).get('sha256') == item['sha256']:
+        marker = target.with_suffix('.verified.json')
+        if target.exists() and target.stat().st_size == item['size'] and marker.exists():
+            if json.loads(marker.read_text()).get('sha256') == item['sha256']:
                 result.append({'name': target.name, 'bytes': target.stat().st_size, 'cached': True})
                 continue
-            if file_sha256(target) == item['sha256']:
-                write_json(marker, {'sha256': item['sha256'], 'bytes': item['size']})
-                result.append({'name': target.name, 'bytes': target.stat().st_size, 'cached': True})
-                continue
-            raise RuntimeError('An existing file failed the official checksum; it was left untouched: ' + target.name)
-        missing.append((item, target, marker))
-
-    required = sum(item['size'] for item, _, _ in missing) + 2 * 1024 ** 3
-    if shutil.disk_usage(VOLUME).free < required:
-        raise RuntimeError('Not enough free space on the persistent volume. Keep at least the missing model size plus 2 GB free.')
-
-    for item, target, marker in missing:
+        import shutil
+        if shutil.disk_usage(VOLUME).free < item['size'] + 2 * 1024 ** 3:
+            raise RuntimeError('Not enough free space on the volume for ' + target.name)
+        runpod.serverless.progress_update(job, 'Download e verifica: ' + target.name)
         temp = target.with_suffix('.part')
-        if temp.is_symlink() or (temp.exists() and not temp.is_file()):
-            raise RuntimeError('Unsafe partial model path: ' + temp.name)
-        offset = temp.stat().st_size if temp.exists() else 0
-        if offset > item['size']:
-            temp.unlink()
-            offset = 0
         digest = hashlib.sha256()
-        if offset:
-            with temp.open('rb') as source:
-                while chunk := source.read(8 * 1024 * 1024):
-                    digest.update(chunk)
-        headers = {'Range': f'bytes={offset}-'} if offset else {}
-        request = urllib.request.Request(item['url'], headers=headers)
-        runpod.serverless.progress_update(job, 'Downloading and verifying: ' + target.name)
-        with urllib.request.urlopen(request, timeout=60) as response:
-            if offset and response.status == 200:
-                temp.unlink(missing_ok=True)
-                offset = 0
-                digest = hashlib.sha256()
-            elif offset and (response.status != 206 or not response.headers.get('Content-Range', '').startswith(f'bytes {offset}-')):
-                raise RuntimeError('The model server returned an invalid resume range for ' + target.name)
-            mode = 'ab' if offset else 'wb'
-            with temp.open(mode) as output:
-                received = offset
-                last_report = offset
-                while chunk := response.read(8 * 1024 * 1024):
-                    output.write(chunk)
-                    digest.update(chunk)
-                    received += len(chunk)
-                    if received - last_report >= 128 * 1024 ** 2 or received == item['size']:
-                        runpod.serverless.progress_update(job, f'Downloading {target.name}: {received} / {item["size"]} bytes')
-                        last_report = received
+        with urllib.request.urlopen(item['url'], timeout=60) as response, temp.open('wb') as out:
+            while chunk := response.read(8 * 1024 * 1024):
+                digest.update(chunk)
+                out.write(chunk)
         if temp.stat().st_size != item['size'] or digest.hexdigest() != item['sha256']:
-            temp.unlink(missing_ok=True)
-            raise RuntimeError('Official checksum verification failed: ' + target.name)
-        os.link(temp, target)
-        temp.unlink()
+            raise RuntimeError('Model checksum mismatch: ' + target.name)
+        temp.replace(target)
         write_json(marker, {'sha256': item['sha256'], 'bytes': item['size']})
         result.append({'name': target.name, 'bytes': item['size'], 'cached': False})
     return {'models': result}
@@ -220,7 +132,6 @@ def collect(entry, local_id, inline=False):
 
 
 def handler(job):
-    """Rules: Only the fixed actions below are served; never run arbitrary workflows or paths sent by the caller."""
     data = job['input']
     if data.get('action') == 'training-upload':
         if not os.environ.get('SONORA_TRAINER'):

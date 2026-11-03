@@ -1,13 +1,7 @@
 // @codedna
 // description: Durable local two-stem sessions, isolated CPU worker and lossless mix exports.
-// 
-//
-// 
-//
-// 
-//
 // exports: validateMix | createAudioEditor
-// used_by: sonora-studio/server.mjs
+// used_by: server.mjs
 // rules:   Keep source audio immutable, paths server-owned, and processing serialized.
 // agent:   Codex - 2026-10-04 - Stem editor and replacement vocal pipeline.
 import fs from 'node:fs';
@@ -79,24 +73,24 @@ export function createAudioEditor({
   for (const session of db.sessions)
     if (['queued', 'processing'].includes(session.status)) {
       session.status = 'failed';
-      session.error = 'Processing was interrupted by a restart. Select Split vocals and backing to try again.';
+      session.error = 'Processing interrupted by the restart. Press Split voice and backing to try again.';
       session.phase = 'Interrupted';
     }
   const getSession = id => db.sessions.find(s => s.id === id);
   const sessionDir = id => path.join(folder, id);
   function source(id) {
-    if (!uuid(id)) throw new Error('Invalid track ID.');
+    if (!uuid(id)) throw new Error('Invalid song ID.');
     const s = getSession(id);
     if (s?.source?.kind === 'import') {
       const file = path.join(sessionDir(id), 'original.flac');
-      if (!fs.existsSync(file)) throw new Error('Imported audio was not found.');
+      if (!fs.existsSync(file)) throw new Error('Imported audio not found.');
       return file;
     }
     const job = getJob(id);
     if (job?.status !== 'done' || job.assets?.flac !== `${id}.flac`)
-      throw new Error('Select a completed track with FLAC audio.');
+      throw new Error('Choose a finished song with FLAC audio.');
     const file = path.join(dataDir, 'audio', id + '.flac');
-    if (!fs.existsSync(file)) throw new Error('Original audio was not found.');
+    if (!fs.existsSync(file)) throw new Error('Original audio not found.');
     return file;
   }
   function session(id) {
@@ -161,19 +155,19 @@ export function createAudioEditor({
       };
       taskChild.once('error', err => {
         cleanup();
-        reject(new Error(err.code === 'ENOENT' ? 'Separator is not installed. See the README.' : err.message));
+        reject(new Error(err.code === 'ENOENT' ? 'Separator not installed. See the README.' : err.message));
       });
       taskChild.once('close', code => {
         cleanup();
         if (code === 0 && last?.done) resolve(last);
-        else reject(new Error(last?.error || errorText.trim() || 'Audio processing was interrupted.'));
+        else reject(new Error(last?.error || errorText.trim() || 'Audio processing interrupted.'));
       });
     });
   }
   async function enqueue(s, task, done, phase = 'Queued for audio processing') {
-    if (closed) throw new Error('Editor is stopped.');
-    if (queue.length >= 8) throw new Error('Wait for the current audio tasks to finish.');
-    if (!runTask && !fs.existsSync(python)) throw new Error('Local stem separator is not installed.');
+    if (closed) throw new Error('Editor stopped.');
+    if (queue.length >= 8) throw new Error('Wait for the audio processing to finish.');
+    if (!runTask && !fs.existsSync(python)) throw new Error('Local separator not installed.');
     change(s, { status: 'queued', phase, error: null });
     queue.push({ s, task, done });
     void drain();
@@ -210,14 +204,14 @@ export function createAudioEditor({
   }
   function ready(id) {
     const s = session(id);
-    if (!s.stems) throw new Error('Separate the vocals and backing first.');
+    if (!s.stems) throw new Error('Split voice and backing first.');
     if (['queued', 'processing'].includes(s.status))
-      throw new Error('Wait for the current audio processing to finish.');
+      throw new Error('Wait for the audio processing in progress.');
     return s;
   }
   function voicePath(s, id) {
     if (id === 'original') return path.join(sessionDir(s.id), 'vocals.flac');
-    if (!uuid(id) || !s.voices.some(v => v.id === id)) throw new Error('Vocal track is unavailable.');
+    if (!uuid(id) || !s.voices.some(v => v.id === id)) throw new Error('Vocal track not available.');
     return path.join(sessionDir(s.id), 'voices', id, 'voice.flac');
   }
   /**
@@ -239,7 +233,7 @@ export function createAudioEditor({
         if (
           !['vocals', 'instrumental'].every(name => fs.existsSync(path.join(sessionDir(id), name + '.flac')))
         )
-          throw new Error('Track files were not found.');
+          throw new Error('Track files not found.');
         Object.assign(s, {
           stems: true,
           duration: result.duration,
@@ -263,10 +257,10 @@ export function createAudioEditor({
     try {
       for await (const chunk of req) {
         bytes += chunk.length;
-        if (bytes > 150 * 1024 * 1024) throw new Error('File exceeds 150 MB.');
+        if (bytes > 150 * 1024 * 1024) throw new Error('The file exceeds 150 MB.');
         fs.writeSync(fd, chunk);
       }
-      if (bytes < 32) throw new Error('Audio file is empty.');
+      if (bytes < 32) throw new Error('Empty audio file.');
     } catch (e) {
       fs.closeSync(fd);
       fs.rmSync(input, { force: true });
@@ -285,7 +279,7 @@ export function createAudioEditor({
   }
   function settings(id, body) {
     const s = session(id);
-    if (!s.stems) throw new Error('Separate the vocals and backing first.');
+    if (!s.stems) throw new Error('Split voice and backing first.');
     const value = validateMix(body);
     voicePath(s, value.voiceId);
     change(s, { settings: value });
@@ -308,7 +302,7 @@ export function createAudioEditor({
         ...value,
       },
       result => {
-        if (!fs.existsSync(path.join(out, 'mix.flac'))) throw new Error('Mix was not found.');
+        if (!fs.existsSync(path.join(out, 'mix.flac'))) throw new Error('Mix not found.');
         s.settings = value;
         s.mixes.unshift({
           id: mixId,
@@ -322,16 +316,16 @@ export function createAudioEditor({
   }
   function media(id, kind, mediaId) {
     const s = getSession(id);
-    if (!s || !uuid(id)) throw new Error('Session was not found.');
+    if (!s || !uuid(id)) throw new Error('Session not found.');
     if (kind === 'original') return source(id);
     if (kind === 'base' && s.stems) return path.join(sessionDir(id), 'instrumental.flac');
     if (kind === 'voice' && s.stems) return voicePath(s, mediaId || 'original');
     if (kind === 'mix' && uuid(mediaId) && s.mixes.some(m => m.id === mediaId))
       return path.join(sessionDir(id), 'mixes', mediaId, 'mix.flac');
-    throw new Error('Editor audio is unavailable.');
+    throw new Error('Editor audio not available.');
   }
   async function importSong(req) {
-    if (closed) throw new Error('Editor is stopped.');
+    if (closed) throw new Error('Editor stopped.');
     const id = randomUUID(),
       out = sessionDir(id);
     fs.mkdirSync(out, { recursive: true });
@@ -341,27 +335,27 @@ export function createAudioEditor({
     try {
       for await (const chunk of req) {
         bytes += chunk.length;
-        if (bytes > 150 * 1024 * 1024) throw new Error('File exceeds 150 MB.');
+        if (bytes > 150 * 1024 * 1024) throw new Error('The file exceeds 150 MB.');
         fs.writeSync(fd, chunk);
       }
-      if (bytes < 32) throw new Error('Audio file is empty.');
+      if (bytes < 32) throw new Error('Empty audio file.');
     } catch (e) {
       fs.closeSync(fd);
       fs.rmSync(out, { recursive: true, force: true });
       throw e;
     }
     fs.closeSync(fd);
-    let label = 'External track';
+    let label = 'External song';
     try {
       label = decodeURIComponent(req.headers['x-audio-name'] || label).slice(0, 100);
     } catch {}
-    const title = label.replace(/\.[a-z0-9]{2,5}$/i, '') || 'External track';
+    const title = label.replace(/\.[a-z0-9]{2,5}$/i, '') || 'External song';
     const s = {
       id,
       title,
       source: { kind: 'import', label },
       status: 'idle',
-      phase: 'Importing',
+      phase: 'Import',
       voices: [],
       mixes: [],
       settings: { baseGain: 1, voiceGain: 1, offsetMs: 0, voiceId: 'original' },
@@ -380,22 +374,22 @@ export function createAudioEditor({
         s.phase = 'Ready to separate';
         fs.rmSync(input, { force: true });
       },
-      'Importing track'
+      'Importing the song'
     );
   }
   function remove(id) {
     if (!uuid(id)) throw new Error('Invalid session ID.');
     const s = getSession(id);
-    if (!s) throw new Error('Session was not found.');
+    if (!s) throw new Error('Session not found.');
     if (['queued', 'processing'].includes(s.status))
-      throw new Error('Wait for audio processing to finish.');
+      throw new Error('Wait for the audio processing to finish.');
     db.sessions = db.sessions.filter(item => item.id !== id);
     fs.rmSync(sessionDir(id), { recursive: true, force: true });
     save();
     return { ok: true };
   }
   async function ensureMp3(flacPath) {
-    if (!fs.existsSync(flacPath)) throw new Error('Audio file was not found.');
+    if (!fs.existsSync(flacPath)) throw new Error('Audio file not found.');
     const mp3Path = flacPath.replace(/\.flac$/i, '') + '.mp3';
     if (!fs.existsSync(mp3Path)) {
       if (runTask) {
@@ -408,7 +402,7 @@ export function createAudioEditor({
   }
   function coverReference(id) {
     const s = ready(id);
-    if (s.pendingCoverId) throw new Error('A new vocal track is already being processed.');
+    if (s.pendingCoverId) throw new Error('A new voice is already being processed.');
     return { file: media(id, 'base'), duration: s.duration };
   }
   function trackCover(id, jobId) {
@@ -424,7 +418,7 @@ export function createAudioEditor({
       const job = getJob(coverId);
       if (!job) continue;
       if (['failed', 'cancelled'].includes(job.status)) {
-        change(s, { pendingCoverId: null, coverError: job.error || 'Generazione annullata.' });
+        change(s, { pendingCoverId: null, coverError: job.error || 'Generation cancelled.' });
         continue;
       }
       if (job.status !== 'done' || ['queued', 'processing'].includes(s.status)) continue;
@@ -455,7 +449,7 @@ export function createAudioEditor({
             s.pendingCoverId = null;
             attaching.delete(coverId);
           },
-          'Queued · extracting new vocals'
+          'Queued · extracting the new voice'
         );
       } catch (e) {
         attaching.delete(coverId);
@@ -490,7 +484,7 @@ export function createAudioEditor({
         if (['queued', 'processing'].includes(s.status)) {
           s.status = 'failed';
           s.phase = 'Interrupted';
-          s.error = 'Processing was interrupted. You can try again.';
+          s.error = 'Processing interrupted: you can try again.';
         }
       save();
     },

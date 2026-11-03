@@ -2,6 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateInput, buildWorkflow, withoutInstrumentalWords } from '../lib.mjs';
 
+test('LoRA strength defaults to full scale and rejects invalid values', () => {
+  const base = {
+    tags: 'pop',
+    instrumental: true,
+    duration: 30,
+    loraId: '11111111-1111-4111-8111-111111111111',
+  };
+  assert.equal(validateInput(base).loraScale, 1);
+  for (const loraScale of [0, 0.5, 1])
+    assert.equal(validateInput({ ...base, loraScale }).loraScale, loraScale);
+  for (const loraScale of [-0.1, 1.1, '0.5', NaN])
+    assert.throws(() => validateInput({ ...base, loraScale }), /loraScale/);
+});
+
 test('guidance and creativity are validated, defaulted and sent to the language model', () => {
   const base = { tags: 'pop', instrumental: true, duration: 30 };
   const input = validateInput(base);
@@ -35,11 +49,11 @@ test('remix and final quality shape the graph: encoded source as latent, partial
   assert.match(final[1].inputs.unet_name, /xl_sft/);
   assert.throws(
     () => buildWorkflow(base, 1, id, config, null, { audio: '../x.mp3', denoise: 0.5 }),
-    /source audio/
+    /Invalid source audio\./
   );
   assert.throws(
     () => buildWorkflow(base, 1, id, config, null, { audio: `Sonora/${id}.mp3`, denoise: 1 }),
-    /Invalid strength/
+    /Invalid strength \(0\.2–0\.95\)\./
   );
   assert.throws(() => validateInput({ tags: 'pop', instrumental: true, finish: 'x' }));
 });
@@ -51,6 +65,17 @@ test('a style that says no vocals is cleaned before an instrumental becomes a su
   );
   assert.equal(withoutInstrumentalWords('lo-fi, without vocals, vocalless, warm pads'), 'lo-fi, warm pads');
   // phrases about instrumental passages stay: the song can still have a solo
-  assert.equal(withoutInstrumentalWords('pop, instrumental break, bright synths'), 'pop, instrumental break, bright synths');
+  assert.equal(
+    withoutInstrumentalWords('pop, instrumental break, bright synths'),
+    'pop, instrumental break, bright synths'
+  );
   assert.equal(withoutInstrumentalWords('Instrumental, no vocals'), 'vocal song', 'never an empty style');
+});
+
+test('YuE2 melody freedom accepts only the three supported levels', () => {
+  const base = { tags: 'pop', lyrics: '[Verse]\nhello', musicModel: 'yue2' };
+  for (const yueMelodyFreedom of ['low', 'medium', 'high'])
+    assert.equal(validateInput({ ...base, yueMelodyFreedom }).yueMelodyFreedom, yueMelodyFreedom);
+  assert.throws(() => validateInput({ ...base, yueMelodyFreedom: 'extreme' }), /Invalid melodic freedom\./);
+  assert.equal(validateInput(base).yueMelodyFreedom, undefined);
 });

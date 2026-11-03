@@ -12,7 +12,8 @@ try {
     $studioState = Invoke-RestMethod ($studioUrl + '/api/state') -TimeoutSec 2
     if ($null -ne $studioState.health) { Open-StudioBrowser; exit 0 }
 } catch {}
-$studioNode = Get-Command node.exe -ErrorAction SilentlyContinue
+$bundledNode = Join-Path (Join-Path (Join-Path $studioRoot 'runtime') 'node') 'node.exe'
+$studioNode = if (Test-Path -LiteralPath $bundledNode) { [pscustomobject]@{ Source = $bundledNode } } else { Get-Command node.exe -ErrorAction SilentlyContinue }
 if (-not $studioNode) { throw 'Node.js 22 or newer was not found. Install Node.js and try again.' }
 $studioMajor = [int]((& $studioNode.Source --version).TrimStart('v').Split('.')[0])
 if ($studioMajor -lt 22) { throw 'Node.js 22 or newer is required.' }

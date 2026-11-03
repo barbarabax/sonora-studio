@@ -31,10 +31,18 @@ function fakeFetch(url) {
         lfs: { oid: crypto.createHash('sha256').update(fixture).digest('hex') },
       },
     ]);
-  return response(new ReadableStream({ start(controller) { controller.enqueue(fixture); controller.close(); } }), {
-    url,
-    headers: new Headers(),
-  });
+  return response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(fixture);
+        controller.close();
+      },
+    }),
+    {
+      url,
+      headers: new Headers(),
+    }
+  );
 }
 
 test('model setup validates a real ComfyUI root and installs only a confirmed verified fixture', async t => {
@@ -70,10 +78,18 @@ test('local model API validates and saves the ComfyUI root before showing the fi
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-model-api-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-comfy-api-'));
   fs.writeFileSync(path.join(root, 'main.py'), '# ComfyUI');
-  const names = { model: 'model.safetensors', encoder: 'encoder.safetensors', planner: 'planner.safetensors', vae: 'vae.safetensors' };
+  const names = {
+    model: 'model.safetensors',
+    encoder: 'encoder.safetensors',
+    planner: 'planner.safetensors',
+    vae: 'vae.safetensors',
+  };
   const comfy = http.createServer((req, res) => {
     const route = new URL(req.url, 'http://localhost').pathname;
-    const send = value => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
+    const send = value => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(value));
+    };
     if (route === '/system_stats') return send({ devices: [{ name: 'Test GPU' }] });
     if (route.startsWith('/object_info/')) {
       const node = route.split('/').pop();
@@ -103,11 +119,12 @@ test('local model API validates and saves the ComfyUI root before showing the fi
   );
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${app.server.address().port}`;
-  const request = (route, body) => fetch(base + route, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Sonora': '1' },
-    body: JSON.stringify(body),
-  });
+  const request = (route, body) =>
+    fetch(base + route, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Sonora': '1' },
+      body: JSON.stringify(body),
+    });
   t.after(async () => {
     await app.close();
     await new Promise(resolve => comfy.close(resolve));
@@ -116,7 +133,10 @@ test('local model API validates and saves the ComfyUI root before showing the fi
   });
 
   assert.equal((await request('/api/models/plan', {})).status, 400);
-  const saved = await request('/api/settings/local', { comfyUrl: `http://127.0.0.1:${comfy.address().port}`, comfyRoot: root });
+  const saved = await request('/api/settings/local', {
+    comfyUrl: `http://127.0.0.1:${comfy.address().port}`,
+    comfyRoot: root,
+  });
   assert.equal(saved.status, 200);
   const planResponse = await request('/api/models/plan', {});
   assert.equal(planResponse.status, 200);
@@ -141,7 +161,12 @@ test('when every file is on disk but ComfyUI does not list them, the app says so
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-model-warn-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sonora-comfy-warn-'));
   fs.writeFileSync(path.join(root, 'main.py'), '# ComfyUI');
-  const names = { model: 'model.safetensors', encoder: 'encoder.safetensors', planner: 'planner.safetensors', vae: 'vae.safetensors' };
+  const names = {
+    model: 'model.safetensors',
+    encoder: 'encoder.safetensors',
+    planner: 'planner.safetensors',
+    vae: 'vae.safetensors',
+  };
   const files = ACE_STEP_FILES.map((item, index) => ({
     path: item.path,
     size: index + 1,
@@ -155,12 +180,22 @@ test('when every file is on disk but ComfyUI does not list them, the app says so
   // ComfyUI Desktop: started with its own base folder, and its model lists are empty.
   const comfy = http.createServer((req, res) => {
     const route = new URL(req.url, 'http://localhost').pathname;
-    const send = value => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
+    const send = value => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(value));
+    };
     if (route === '/system_stats')
-      return send({ system: { argv: ['main.py', '--base-directory', 'D:\\ComfyUI'] }, devices: [{ name: 'Test GPU' }] });
+      return send({
+        system: { argv: ['main.py', '--base-directory', 'D:\\ComfyUI'] },
+        devices: [{ name: 'Test GPU' }],
+      });
     if (route.startsWith('/object_info/')) {
       const node = route.split('/').pop();
-      return send({ [node]: { input: { required: { unet_name: [[]], clip_name1: [[]], clip_name2: [[]], vae_name: [[]] } } } });
+      return send({
+        [node]: {
+          input: { required: { unet_name: [[]], clip_name1: [[]], clip_name2: [[]], vae_name: [[]] } },
+        },
+      });
     }
     send({});
   });
@@ -171,18 +206,22 @@ test('when every file is on disk but ComfyUI does not list them, the app says so
   );
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${app.server.address().port}`;
-  const request = (route, body) => fetch(base + route, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Sonora': '1' },
-    body: JSON.stringify(body),
-  });
+  const request = (route, body) =>
+    fetch(base + route, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Sonora': '1' },
+      body: JSON.stringify(body),
+    });
   t.after(async () => {
     await app.close();
     await new Promise(resolve => comfy.close(resolve));
     fs.rmSync(dataDir, { recursive: true, force: true });
     fs.rmSync(root, { recursive: true, force: true });
   });
-  await request('/api/settings/local', { comfyUrl: `http://127.0.0.1:${comfy.address().port}`, comfyRoot: root });
+  await request('/api/settings/local', {
+    comfyUrl: `http://127.0.0.1:${comfy.address().port}`,
+    comfyRoot: root,
+  });
   const plan = await (await request('/api/models/plan', {})).json();
   assert.ok(plan.files.every(file => file.status === 'present'));
   assert.match(plan.warning, /does not see them/);

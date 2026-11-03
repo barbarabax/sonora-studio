@@ -2,14 +2,8 @@
 // description: Durable Audio Lab sessions: analysis, full-length mastering renders, saved masters, references and AI advice.
 //
 //
-// 
-//
-// 
-//
-// 
-//
 // exports: EQ_BANDS | MASTER_DEFAULTS | migrateSettings | validateMastering | createCpuLock | createAudioLab
-// used_by: sonora-studio/server.mjs
+// used_by: server.mjs
 // rules:   Resolve sources server-side, never modify them, publish renders only after the worker completes.
 // agent:   Claude - 2026-10-04 - Audio Lab integration from Barichord Audio Lab.
 import fs from 'node:fs';
@@ -39,9 +33,9 @@ const MODES = {
   metadata: ['keep', 'strip'],
 };
 const snap = (value, [min, max, step], clamp, key) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Invalid ${key} value.`);
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Value ${key} is not valid.`);
   if (clamp) value = Math.min(max, Math.max(min, value));
-  else if (value < min || value > max) throw new Error(`${key} is outside the allowed range (${min}…${max}).`);
+  else if (value < min || value > max) throw new Error(`Value ${key} is out of range (${min}…${max}).`);
   return Number((Math.round(value / step) * step).toFixed(2));
 };
 // Settings saved before the 10-band EQ (3 bands split at 200 Hz / 4 kHz) map onto the nearest bands.
@@ -62,13 +56,13 @@ export function validateMastering(body = {}, { clamp = false } = {}) {
   const out = {},
     eq = body.eq ?? MASTER_DEFAULTS.eq;
   if (!Array.isArray(eq) || eq.length !== EQ_BANDS.length)
-    throw new Error('The equalizer requires 10 bands.');
+    throw new Error('The equaliser requires 10 bands.');
   out.eq = eq.map((v, i) => snap(v, EQ, clamp, 'EQ ' + EQ_BANDS[i] + ' Hz'));
   for (const [key, range] of Object.entries(RANGES))
     out[key] = snap(body[key] ?? MASTER_DEFAULTS[key], range, clamp, key);
   for (const [key, list] of Object.entries(MODES)) {
     const value = body[key] ?? MASTER_DEFAULTS[key];
-    if (!list.includes(value)) throw new Error(`Invalid ${key} value.`);
+    if (!list.includes(value)) throw new Error(`Value ${key} is not valid.`);
     out[key] = value;
   }
   return out;
@@ -135,7 +129,7 @@ export function createAudioLab({
         status: 'failed',
         phase: 'Interrupted',
         task: null,
-        error: 'Processing was interrupted by a restart. You can try again.',
+        error: 'Processing interrupted by the restart. You can try again.',
       });
     s.settings = migrateSettings(s.settings);
     if (s.advice) s.advice.settings = migrateSettings(s.advice.settings);
@@ -144,7 +138,7 @@ export function createAudioLab({
   const getSession = id => {
     if (!uuid(id)) throw new Error('Invalid session.');
     const s = db.sessions.find(s => s.id === id);
-    if (!s) throw new Error('Audio Lab session was not found.');
+    if (!s) throw new Error('Audio Lab session not found.');
     return s;
   };
   const sessionDir = id => path.join(folder, id);
@@ -157,14 +151,14 @@ export function createAudioLab({
     const { kind, jobId, mixId } = s.source;
     if (kind === 'import') {
       const file = path.join(sessionDir(s.id), 'source.flac');
-      if (!fs.existsSync(file)) throw new Error('Imported audio is unavailable.');
+      if (!fs.existsSync(file)) throw new Error('Imported audio not available.');
       return file;
     }
     const job = getJob(jobId);
     if (job?.status !== 'done' || job.assets?.flac !== `${jobId}.flac`)
-      throw new Error('The source track is no longer available.');
+      throw new Error('The starting song is no longer available.');
     const file = kind === 'mix' ? getMix(jobId, mixId) : path.join(dataDir, 'audio', jobId + '.flac');
-    if (!fs.existsSync(file)) throw new Error('Source audio was not found.');
+    if (!fs.existsSync(file)) throw new Error('Starting audio not found.');
     return file;
   }
   function worker(task, progress) {
@@ -205,7 +199,7 @@ export function createAudioLab({
         cleanup();
         reject(
           new Error(
-            err.code === 'ENOENT' ? 'The local Python environment is not installed. See the README.' : err.message
+            err.code === 'ENOENT' ? 'Local Python environment not installed. See the README.' : err.message
           )
         );
       });
@@ -214,17 +208,17 @@ export function createAudioLab({
         if (code === 0 && last?.done) resolve(last);
         else
           reject(
-            new Error(last?.error || errorText.trim().split('\n').pop() || 'Audio processing was interrupted.')
+            new Error(last?.error || errorText.trim().split('\n').pop() || 'Audio processing interrupted.')
           );
       });
     });
   }
   function enqueue(s, task, { done, fail = () => {}, phase = 'Queued' }) {
-    if (closed) throw new Error('Audio Lab is stopped.');
-    if (busy(s)) throw new Error('Wait for this track’s current processing to finish.');
-    if (queue.length >= 8) throw new Error('Too many tasks are queued. Wait a moment.');
+    if (closed) throw new Error('Audio Lab stopped.');
+    if (busy(s)) throw new Error('Wait for the processing in progress for this song.');
+    if (queue.length >= 8) throw new Error('Too many jobs in the queue: wait a moment.');
     if (!runTask && !fs.existsSync(python))
-      throw new Error('The local Python environment is not installed. See the README.');
+      throw new Error('Local Python environment not installed. See the README.');
     change(s, { status: 'queued', phase, error: null, task: task.action });
     queue.push({ s, task, done, fail, cancelled: false });
     void drain();
@@ -274,10 +268,10 @@ export function createAudioLab({
     try {
       for await (const chunk of req) {
         bytes += chunk.length;
-        if (bytes > UPLOAD_LIMIT) throw new Error('File exceeds 150 MB.');
+        if (bytes > UPLOAD_LIMIT) throw new Error('The file exceeds 150 MB.');
         fs.writeSync(fd, chunk);
       }
-      if (bytes < 32) throw new Error('Audio file is empty.');
+      if (bytes < 32) throw new Error('Empty audio file.');
     } catch (e) {
       fs.closeSync(fd);
       fs.rmSync(file, { force: true });
@@ -286,7 +280,7 @@ export function createAudioLab({
     fs.closeSync(fd);
   }
   const nameOf = req => {
-    let name = 'Audio importato';
+    let name = 'Imported audio';
     try {
       name = decodeURIComponent(req.headers['x-audio-name'] || name);
     } catch {}
@@ -294,7 +288,7 @@ export function createAudioLab({
       name
         .replace(/[\u0000-\u001f]/g, '')
         .trim()
-        .slice(0, 100) || 'Audio importato'
+        .slice(0, 100) || 'Imported audio'
     );
   };
   function analyzeTask(s) {
@@ -314,7 +308,7 @@ export function createAudioLab({
   function create(body) {
     const kind = body?.kind;
     if (!['job', 'mix'].includes(kind) || !uuid(body.jobId) || (kind === 'mix' && !uuid(body.mixId)))
-      throw new Error('Select a track or mix to analyze.');
+      throw new Error('Choose a song or a mix to analyse.');
     const existing = db.sessions.find(
       s =>
         s.source.kind === kind &&
@@ -328,10 +322,10 @@ export function createAudioLab({
     const job = getJob(body.jobId);
     const s = {
       id: randomUUID(),
-      title: (job?.title || 'Track') + (kind === 'mix' ? ' · mix' : ''),
+      title: (job?.title || 'Song') + (kind === 'mix' ? ' · mix' : ''),
       source: kind === 'mix' ? { kind, jobId: body.jobId, mixId: body.mixId } : { kind, jobId: body.jobId },
       status: 'idle',
-      phase: 'Ready to analyze',
+      phase: 'Ready to analyse',
       analysis: null,
       reference: null,
       renders: [],
@@ -345,7 +339,7 @@ export function createAudioLab({
     return analyzeTask(s);
   }
   async function importFile(req) {
-    if (closed) throw new Error('Audio Lab is stopped.');
+    if (closed) throw new Error('Audio Lab stopped.');
     const id = randomUUID(),
       upload = path.join(sessionDir(id), 'upload.audio'),
       label = nameOf(req);
@@ -360,7 +354,7 @@ export function createAudioLab({
       title: label.replace(/\.[a-z0-9]{2,5}$/i, ''),
       source: { kind: 'import', label },
       status: 'idle',
-      phase: 'Importing',
+      phase: 'Import',
       analysis: null,
       reference: null,
       renders: [],
@@ -388,7 +382,7 @@ export function createAudioLab({
   }
   async function reference(id, req) {
     const s = getSession(id);
-    if (busy(s)) throw new Error('Wait for this track’s current processing to finish.');
+    if (busy(s)) throw new Error('Wait for the processing in progress for this song.');
     const upload = path.join(sessionDir(id), `reference-${randomUUID()}.audio`),
       label = nameOf(req),
       file = path.join(sessionDir(id), 'reference.flac');
@@ -412,11 +406,11 @@ export function createAudioLab({
   }
   async function preview(id, body) {
     const s = getSession(id);
-    if (!s.analysis) throw new Error('Analyze the track first.');
+    if (!s.analysis) throw new Error('Analyse the song first.');
     const settings = validateMastering(body),
       file = sourceFile(s);
     if (s.sourceSha256 && (await hashFile(file)) !== s.sourceSha256)
-      throw new Error('The source audio changed after analysis. Select Analyze again.');
+      throw new Error('The starting audio changed after the analysis: press Analyse again.');
     const renderId = randomUUID(),
       dir = path.join(sessionDir(id), 'renders', renderId);
     change(s, { settings });
@@ -428,7 +422,7 @@ export function createAudioLab({
         phase: 'Queued · master export',
         done: result => {
           if (!fs.existsSync(path.join(dir, 'master.flac')))
-            throw new Error('Master was not found after processing.');
+            throw new Error('Master not found after processing.');
           const now = new Date().toISOString(),
             mp3 = !!result.mp3 && fs.existsSync(path.join(dir, 'master.mp3'));
           const render = {
@@ -456,12 +450,12 @@ export function createAudioLab({
   }
   // Copy an exported master into the Sonora library as a new track; the source track is untouched.
   function publish(s, render) {
-    if (!addToLibrary) throw new Error('Library is unavailable.');
+    if (!addToLibrary) throw new Error('Library not available.');
     const dir = path.join(sessionDir(s.id), 'renders', render.id),
       flac = path.join(dir, 'master.flac'),
       mp3 = path.join(dir, 'master.mp3');
     if (!fs.existsSync(flac) || !fs.existsSync(mp3))
-      throw new Error('Master files are missing. Export it again.');
+      throw new Error('Master files missing: export it again.');
     const job = addToLibrary({ session: s, render, flac, mp3 });
     render.libraryJobId = job.id;
     delete render.libraryError;
@@ -470,15 +464,15 @@ export function createAudioLab({
   function toLibrary(id, renderId) {
     const s = getSession(id),
       render = uuid(renderId) && s.renders.find(r => r.id === renderId);
-    if (!render) throw new Error('Master was not found.');
+    if (!render) throw new Error('Master not found.');
     const job = publish(s, render);
     change(s, {});
     return job;
   }
   function removeRender(id, renderId) {
     const s = getSession(id);
-    if (busy(s)) throw new Error('Wait for this track’s current processing to finish.');
-    if (!uuid(renderId) || !s.renders.some(r => r.id === renderId)) throw new Error('Master was not found.');
+    if (busy(s)) throw new Error('Wait for the processing in progress for this song.');
+    if (!uuid(renderId) || !s.renders.some(r => r.id === renderId)) throw new Error('Master not found.');
     fs.rmSync(path.join(sessionDir(id), 'renders', renderId), { recursive: true, force: true });
     change(s, { renders: s.renders.filter(r => r.id !== renderId) });
     return s;
@@ -486,7 +480,7 @@ export function createAudioLab({
   function saveRender(id, renderId) {
     const s = getSession(id),
       render = s.renders.find(r => r.id === renderId);
-    if (!uuid(renderId) || !render) throw new Error('Preview was not found.');
+    if (!uuid(renderId) || !render) throw new Error('Preview not found.');
     if (render.saved && render.mp3) return s;
     const dir = path.join(sessionDir(id), 'renders', renderId);
     return enqueue(
@@ -495,7 +489,7 @@ export function createAudioLab({
       {
         phase: 'Queued · saving master',
         done: () => {
-          if (!fs.existsSync(path.join(dir, 'master.mp3'))) throw new Error('MP3 was not found.');
+          if (!fs.existsSync(path.join(dir, 'master.mp3'))) throw new Error('MP3 not found.');
           Object.assign(render, { saved: true, mp3: true, savedAt: new Date().toISOString() });
         },
       }
@@ -522,7 +516,7 @@ export function createAudioLab({
   function remove(id) {
     const s = getSession(id);
     if (busy(s) || advising.has(id))
-      throw new Error('Wait for processing to finish or cancel it before removing the session.');
+      throw new Error('Wait for or cancel the processing before removing the session.');
     db.sessions = db.sessions.filter(x => x !== s);
     fs.rmSync(sessionDir(id), { recursive: true, force: true });
     save();
@@ -530,8 +524,8 @@ export function createAudioLab({
   }
   async function advice(id, body = {}) {
     const s = getSession(id);
-    if (!s.analysis) throw new Error('Analyze the track first.');
-    if (advising.has(id)) throw new Error('An AI request is already in progress for this track.');
+    if (!s.analysis) throw new Error('Analyse the song first.');
+    if (advising.has(id)) throw new Error('AI request already in progress for this song.');
     const goal = body.goal ?? '';
     if (typeof goal !== 'string' || goal.length > 500)
       throw new Error('Invalid goal (maximum 500 characters).');
@@ -604,7 +598,7 @@ export function createAudioLab({
     const render = uuid(mediaId) && s.renders.find(r => r.id === mediaId);
     if (kind === 'render' && render && (format === 'flac' || (format === 'mp3' && render.mp3)))
       return path.join(sessionDir(id), 'renders', mediaId, 'master.' + format);
-    throw new Error('Audio is unavailable.');
+    throw new Error('Audio not available.');
   }
   return {
     snapshot: () => ({
@@ -634,7 +628,7 @@ export function createAudioLab({
             status: 'failed',
             phase: 'Interrupted',
             task: null,
-            error: 'Processing was interrupted. You can try again.',
+            error: 'Processing interrupted: you can try again.',
           });
       save();
     },

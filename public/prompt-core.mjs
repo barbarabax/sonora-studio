@@ -1,19 +1,13 @@
 // @codedna
 // description: Original Suno Prompt assembly, optimization, conflicts and random archetypes.
-// 
 //
-// 
 //
-// 
 //
-// 
-//
-// 
 //
 // exports: bandBpm | effectiveBpm | checkNewConflicts | createEmptyState | randomPromptState | buildPrompt
-// used_by: sonora-studio/public/create-ui.mjs
-//                   sonora-studio/public/prompt-adapter.mjs
-//                   sonora-studio/public/prompt-ui.mjs
+// used_by: public/create-ui.mjs
+//                   public/prompt-adapter.mjs
+//                   public/prompt-ui.mjs
 // rules:   Imported from the user-owned Suno Prompt source. Preserve original musical choices and conflict rules.
 // agent:   Codex - 2026-10-04 - Adapted pure logic without React or site authentication.
 import {
@@ -259,7 +253,7 @@ const generateExcludeTerms = state => {
     if (allSelections.includes(a) && allSelections.includes(b)) {
       conflictedSelections.add(a);
       conflictedSelections.add(b);
-      conflicts.push(`Conflicting selections: choose one of ${label}`);
+      conflicts.push(`Contradictory selection: choose only one of ${label}`);
     }
   }
   const excludeSet = new Set();

@@ -203,7 +203,7 @@ test('sessions analyse, render full previews, save masters, prune drafts and rec
   assert.match(s.sourceSha256, /^[a-f0-9]{64}$/);
   await assert.rejects(lab.preview(s.id, { targetLufs: -40 }));
   await lab.preview(s.id, { ...MASTER_DEFAULTS, targetLufs: -16 });
-  assert.throws(() => lab.analyze(s.id), /Wait for this track/);
+  assert.throws(() => lab.analyze(s.id), /Wait for the processing/);
   await waitFor(() => s.renders.length === 1 && s.status === 'ready');
   const render = s.renders[0];
   assert.equal(render.loudness.reached, -16);
@@ -228,7 +228,7 @@ test('sessions analyse, render full previews, save masters, prune drafts and rec
   assert.throws(() => lab.media(s.id, 'render', '../../library.json'));
   assert.throws(() => lab.media(s.id, 'reference'));
   fs.writeFileSync(path.join(dir, 'audio', job.id + '.flac'), Buffer.alloc(512, 9));
-  await assert.rejects(lab.preview(s.id, {}), /changed after analysis/);
+  await assert.rejects(lab.preview(s.id, {}), /The starting audio changed/);
   fs.writeFileSync(path.join(dir, 'audio', job.id + '.flac'), original);
   lab.close();
   const file = path.join(dir, 'audio-lab', 'sessions.json'),
@@ -271,7 +271,7 @@ test('imports, references, cancellation and removal keep library audio intact', 
     lab.close();
     fs.rmSync(dir, { recursive: true, force: true });
   });
-  await assert.rejects(lab.importFile(stream(Buffer.alloc(4))), /empty/);
+  await assert.rejects(lab.importFile(stream(Buffer.alloc(4))), /Empty audio file\./);
   assert.equal(lab.snapshot().sessions.length, 0);
   assert.deepEqual(
     fs.readdirSync(path.join(dir, 'audio-lab')).filter(n => n !== 'sessions.json'),
@@ -374,10 +374,10 @@ test('AI advice sends measurements only, clamps proposals and keeps manual maste
   );
   assert.match(body.messages[1].content, /Translate every tonal imbalance/);
   reply = content({ observations: [] });
-  await assert.rejects(lab.advice(s.id, {}), /incomplete/);
+  await assert.rejects(lab.advice(s.id, {}), /The AI suggestions are/);
   reply = () => new Response('{}', { status: 401 });
-  await assert.rejects(lab.advice(s.id, {}), /key is invalid/);
-  await assert.rejects(lab.advice(s.id, { goal: 'x'.repeat(501) }), /Invalid goal/);
+  await assert.rejects(lab.advice(s.id, {}), /Invalid DeepSeek key\. Enter/);
+  await assert.rejects(lab.advice(s.id, { goal: 'x'.repeat(501) }), /Invalid goal \(maximum 500/);
   await lab.preview(s.id, {});
   await waitFor(() => s.renders.length === 1 && s.status === 'ready');
   assert.equal(
