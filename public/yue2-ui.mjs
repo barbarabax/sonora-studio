@@ -88,7 +88,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
     hosts.local && (!hosts.runpod || $('#yue-host').value === 'local') ? 'local' : 'runpod';
   function paintHost() {
     const both = hosts.runpod && hosts.local;
-    $('#yue-host-row').hidden = !both;
+    $('#yue-host-row').hidden = true;
     if (!both) $('#yue-host').value = hosts.local ? 'local' : 'runpod';
     $('#yue-host-hint').hidden = host() !== 'local';
     // Rules: LoRA only exist for yue2.cpp on this PC; on RunPod the list is hidden and nothing chosen is sent.
@@ -906,6 +906,14 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
     setPlan('', null);
     status('Plan discarded: YuE2 will decide the melody and chords on its own.');
   });
+  const followSidebar = backend => {
+    $('#yue-host').value = backend === 'runpod' ? 'runpod' : 'local';
+  };
+  $('#generation-backend').addEventListener('change', event => {
+    followSidebar(event.target.value);
+    paintHost();
+    if ($('#yue-lora').open) loadLoras();
+  });
   $('#yue-host').addEventListener('change', () => {
     paintHost();
     if ($('#yue-lora').open) loadLoras();
@@ -1455,6 +1463,7 @@ export function initYue2Ui({ api, toast, state, readFields, selectModel, applyIn
       melodySupported = !!config.yue2MelodyFreedom;
       hosts = { runpod: !!config.yue2Runpod, local: !!config.yue2Local };
       loraHosts = { local: !!config.yue2Lora, runpod: !!config.yue2LoraRunpod };
+      followSidebar(config.generationBackend);
       paintHost();
     },
     /** Show or hide what belongs to YuE2 and what only ACE-Step understands. */

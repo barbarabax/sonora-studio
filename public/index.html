@@ -43,7 +43,7 @@
         <div class="section-eyebrow">01 / COMPOSE</div><h1 id="composer-title">A new idea.</h1><p class="muted composer-intro">You imagine. The music takes shape.</p>
         <div class="create-tabs segmented" role="tablist" aria-label="How do you want to create"><button type="button" role="tab" data-create-tab="custom" class="selected" aria-selected="true">Custom</button><button type="button" role="tab" data-create-tab="remix" aria-selected="false">Remix</button><button type="button" role="tab" data-create-tab="edit" aria-selected="false">Edit</button></div>
         <form id="create-form" class="create-pane" data-pane="custom">
-          <label for="music-model">Music model</label><select id="music-model" name="musicModel"><option value="ace-step">ACE-Step 1.5 XL Turbo</option><option value="yue2">YuE2-3B · melody and chords</option></select>
+          <label for="music-model">Music model</label><select id="music-model" name="musicModel"><option value="ace-step">ACE-Step 1.5 XL Turbo</option><option value="yue2">YuE2-3B</option></select>
           <p id="music-model-note" class="field-hint">ACE-Step runs through ComfyUI. YuE2 writes the melody and chords first, then sings: it runs on your own PC with yue2.cpp (a light quantised model) or on RunPod.</p>
           <section id="yue-mode-box" class="yue-mode" hidden>
             <div class="segmented yue-mode-switch" role="group" aria-label="How melody and chords are made"><button type="button" data-yue-mode="new" class="selected" aria-pressed="true">Decide Yue2</button><button type="button" data-yue-mode="chords" aria-pressed="false">I choose the chords</button><button type="button" data-yue-mode="cover" aria-pressed="false">Reference</button></div>

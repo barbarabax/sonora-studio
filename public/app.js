@@ -565,7 +565,6 @@ function render() {
   if (yue2) $('#lora-select').value = '';
   syncLoraScale();
   $('#quality').disabled = yue2;
-  $('#generation-backend').disabled = yue2;
   const session = state.gpuSession || { active: false, phase: 'off' };
   $('#gpu-session').hidden = h.backend !== 'runpod' && !session.active;
   $('#gpu-session-toggle').textContent = session.active ? 'End GPU session' : 'Start GPU session · 30 min';
@@ -583,7 +582,7 @@ function render() {
         : 'your computer';
   if (h.backend && h.backend !== 'yue2') $('#generation-backend').value = h.backend;
   $('#generation-note').textContent = yue2
-    ? 'YuE2 runs on your PC or on RunPod (choose in «Where to create it»).'
+    ? 'YuE2 follows this choice: the local option creates the song on this PC, RunPod on RunPod.'
     : h.backend === 'runpod'
       ? 'Generation uses your RunPod account and credits.'
       : h.backend === 'vast'

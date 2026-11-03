@@ -2024,7 +2024,7 @@ export function createStudio(
           throw new Error('Wait for active generation jobs to finish before switching providers.');
         if (generationBackend === 'vast' && b.backend !== 'vast') await vast.close();
         generationBackend = b.backend;
-        musicModel = 'ace-step';
+        // Rules: the service choice (this PC / RunPod) never switches the music model; YuE2 follows it.
         fs.writeFileSync(generationFile + '.tmp', JSON.stringify({ backend: generationBackend }));
         fs.renameSync(generationFile + '.tmp', generationFile);
         json(res, 200, await checkHealth());
